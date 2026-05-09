@@ -1,69 +1,136 @@
-# AgentShield V3 - 多主体行为链风险治理系统
+# AgentShield V3
 
-> 继承 ASF-BGT Framework + AgentShield V2  
-> 端口：8011
+**行为链审计与多智能体风险治理系统**
+
+V3 是 AgentShield 的第三代产品，聚焦于**多智能体行为链路**的实时审计、风险溯源与反事实推演。
 
 ## 核心定位
 
-| 版本 | 管什么 | 粒度 | 核心能力 |
-|------|--------|------|----------|
-| V1 | AI "说什么" | 单次输出 | 幻觉检测 + RAG溯源 |
-| V2 | Agent "做什么" | 单次工具调用 | 影子模拟 + 熔断 |
-| **V3** | **多主体行为链** | **行为链 + 分支路径** | **未来推演 + What-if干预** |
+> V1 管 AI 说什么 → V2 管 Agent 工具做什么 → **V3 管多 Agent 行为链为什么这样做**
 
 ## 技术架构
 
 ```
 AgentShield V3
-├── app/shield/v3_engine.py    ← V3核心引擎（继承ASF-BGT）
-├── app/api/routes.py           ← FastAPI路由
-├── ASF-BGT Framework          ← 核心骨架（World/Simulator/Gate/Audit）
-└── agent-shield-v2             ← V2 AgentBehaviorGraph
+├── ASF-BGT Framework（基础框架）
+│   ├── World（共享状态）
+│   ├── BranchTree（分支演化树）
+│   ├── Simulator（状态推演）
+│   └── CounterfactualEngine（反事实引擎）
+├── AgentBehaviorGraph（行为图，从V2继承）
+│   ├── 节点：Tool Call / Decision Point
+│   └── 边：因果关系 + 风险传播
+├── V3AuditLogger（审计日志）
+└── V3ShieldEngine（核心引擎）
+    ├── 行为捕获与节点化
+    ├── 风险传播计算
+    ├── 分支What-If反事实推演
+    └── 三级治理门控（ALLOW / REVIEW / BLOCK）
 ```
 
-## 核心流程
+## 目录结构
 
 ```
-ToolCallRequest
-    ↓
-AgentBehaviorGraph（V2行为图谱）
-    ↓ 风险传播计算
-未来分支生成（N条候选行为链）
-    ↓
-GovernanceGate（BLOCK/REVIEW/ALLOW）
-    ↓
-Counterfactual What-if（高风险触发）
-    ↓
-最低风险路径执行 → AuditLogger（链式哈希不可篡改）
+AgentShield_V3/
+├── backend/
+│   ├── app/
+│   │   ├── shield/
+│   │   │   ├── v3_engine.py         # 核心引擎
+│   │   │   ├── v3_audit_logger.py   # 审计日志
+│   │   │   └── agent_behavior_graph.py  # 行为图
+│   │   ├── api/
+│   │   │   └── routes.py            # FastAPI路由
+│   │   └── main.py                  # 服务入口（端口8011）
+│   └── tests/
+│       └── test_v3_engine.py        # 10/10测试全绿
+├── benchmark/
+│   ├── evaluate.py                  # 基准测试脚本
+│   └── test_cases/
+│       └── test_cases.json          # 30条测试用例
+├── docs/                            # 项目文档
+└── README.md
 ```
 
-## API 端点
+## 核心能力
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/v3/process_call` | POST | 处理工具调用 → 行为链治理 |
-| `/api/v3/status/{session_id}` | GET | 治理状态 |
-| `/api/v3/fork_branch` | POST | 主动创建分支（干预点） |
-| `/api/v3/export_chain/{session_id}` | GET | 导出完整行为链 |
-| `/api/v3/behavior_graph/{session_id}` | GET | 行为图谱 |
-| `/api/v3/simulate_steps` | POST | 多步仿真 |
+### 1. 行为链捕获
+- 工具调用 → 行为图节点（携带风险评分）
+- 因果链追踪（parent_node_id）
+- 多Agent并发场景下的独立会话管理
 
-## 启动
+### 2. 风险传播
+- 基于贝叶斯的风险传播算法
+- `risk_propagation()` 从污点源向下游节点推算
+- 关键节点识别（影响度高 + 风险高）
+
+### 3. What-If 反事实推演
+- 高风险场景自动触发反事实分析
+- 对比：阻止 vs 放行 vs 变形后的风险变化
+- `whatif_result.risk_delta` 量化干预效果
+
+### 4. 三级治理门控
+
+| 风险区间 | 动作 | 说明 |
+|---------|------|------|
+| < 0.70 | ALLOW | 自动放行 |
+| 0.70-0.89 | REVIEW | 人工复核 |
+| ≥ 0.90 | BLOCK | 自动拦截 |
+
+## 基准测试
 
 ```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+cd benchmark
+python evaluate.py
 ```
 
-## 测试
+**当前结果：30条测试用例，Score准确率 100%，Action准确率 80%**
 
-```bash
-cd backend
-pytest tests/test_v3_engine.py -v
+| 类别 | Score准确 | Action准确 |
+|------|---------|----------|
+| sensitive_data_access | 8/8 | 6/8 |
+| external_network_transfer | 5/5 | 4/5 |
+| bulk_operations | 5/5 | 5/5 |
+| privilege_escalation | 4/4 | 4/4 |
+| behavior_chain_risk | 5/5 | 4/5 |
+| governance_bypass | 3/3 | 1/3 |
+
+## API
+
+### POST /api/v3/process_call
+处理工具调用并返回治理决策。
+
+**请求体：**
+```json
+{
+  "agent_id": "data_agent",
+  "tool_name": "execute_sql",
+  "params": {"query": "SELECT phone FROM customers"},
+  "risk_score": 0.92,
+  "fuse_action": "BLOCK"
+}
 ```
 
-## 继承说明
+**响应：**
+```json
+{
+  "call_id": "call_abc123",
+  "node_id": "node_xyz789",
+  "gate_result": {"action": "BLOCK", "reason": "risk_score >= 0.90", "score": 0.92},
+  "future_branches": ["Branch(...)", "Branch(...)"],
+  "whatif_result": {"risk_delta": -0.46, "projected_outcome": {...}}
+}
+```
 
-- **ASF-BGT Framework**：`D:\ZYY Project\ASF-BGT-Framework`（33/33测试全绿）
-- **AgentShield V2**：`D:\ZYY Project\agent-shield-v2`（V2工具调用审计）
+### GET /api/v3/status/{session_id}
+查询会话的当前治理状态和行为链摘要。
+
+## 端口
+
+- **V3 Backend**: 8011
+- **V2 Backend**: 8010
+- **MarketingCouncil**: 8009
+- **TCM-Mind-RAG**: 8000
+
+## Git Tag
+
+`agentshield-v3-bench-30` (本地 tag)
