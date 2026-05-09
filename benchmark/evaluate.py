@@ -13,7 +13,11 @@ from app.shield.v3_engine import V3ShieldEngine
 
 
 def load_test_cases():
-    with open(Path(__file__).parent / "test_cases" / "test_cases.json", encoding="utf-8") as f:
+    # Try 100-case set first, fall back to 30-case set
+    p100 = Path(__file__).parent / "test_cases" / "test_cases_100.json"
+    p30 = Path(__file__).parent / "test_cases" / "test_cases.json"
+    path = p100 if p100.exists() else p30
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
