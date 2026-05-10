@@ -245,15 +245,13 @@ class V3ShieldEngine:
             if risk_score >= 0.90:
                 action = GovernanceAction.BLOCK
                 reason = "risk_score >= 0.90"
-            elif risk_score >= self.risk_threshold:
-                action = GovernanceAction.REVIEW
-                reason = f"risk_score >= threshold({self.risk_threshold})"
-            elif branches and any(self._branch_risk(b) > self.risk_threshold for b in branches):
-                action = GovernanceAction.REVIEW
-                reason = "future branch exceeds risk threshold"
+            elif risk_score >= 0.60:
+                # 0.60-0.89: HUMAN_REVIEW (与evaluate.py一致)
+                action = GovernanceAction.HUMAN_REVIEW
+                reason = "0.60 <= risk_score < 0.90, HUMAN_REVIEW"
             else:
                 action = GovernanceAction.ALLOW
-                reason = "below threshold"
+                reason = "risk_score < 0.60"
             return GovernanceResult(action=action, reason=reason, score=risk_score, gate_name="DefaultV3Gate")
         for gate in self.governance_gates:
             result = gate.evaluate(score=risk_score, context={"branches": branches})

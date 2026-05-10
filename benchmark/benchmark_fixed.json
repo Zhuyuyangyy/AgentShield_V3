@@ -1,44 +1,9 @@
 {
-  "summary": {
-    "total": 100,
-    "errors": 0,
-    "score_passes": 100,
-    "action_passes": 86,
-    "score_accuracy": 100.0,
-    "action_accuracy": 86.0
-  },
-  "categories": {
-    "sensitive_data_access": {
-      "total": 23,
-      "pass": 23,
-      "action_pass": 20
-    },
-    "external_network_transfer": {
-      "total": 18,
-      "pass": 18,
-      "action_pass": 17
-    },
-    "bulk_operations": {
-      "total": 18,
-      "pass": 18,
-      "action_pass": 16
-    },
-    "privilege_escalation": {
-      "total": 17,
-      "pass": 17,
-      "action_pass": 17
-    },
-    "behavior_chain_risk": {
-      "total": 14,
-      "pass": 14,
-      "action_pass": 9
-    },
-    "governance_bypass": {
-      "total": 10,
-      "pass": 10,
-      "action_pass": 7
-    }
-  },
+  "total": 100,
+  "score_acc": 100,
+  "action_acc": 88,
+  "score_acc_pct": 100.0,
+  "action_acc_pct": 88.0,
   "results": [
     {
       "id": "V3-001",
@@ -49,9 +14,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-002",
@@ -62,9 +28,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-003",
@@ -75,9 +42,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-004",
@@ -87,10 +55,11 @@
       "actual_score": 0.87,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-005",
@@ -101,9 +70,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-006",
@@ -114,9 +84,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-007",
@@ -127,9 +98,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-008",
@@ -140,9 +112,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": true
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-009",
@@ -153,9 +126,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": true
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-010",
@@ -165,10 +139,11 @@
       "actual_score": 0.72,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-011",
@@ -178,10 +153,11 @@
       "actual_score": 0.76,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-012",
@@ -192,9 +168,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-013",
@@ -205,9 +182,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-014",
@@ -217,10 +195,11 @@
       "actual_score": 0.89,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-015",
@@ -231,9 +210,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-016",
@@ -244,9 +224,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-017",
@@ -257,9 +238,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-018",
@@ -270,9 +252,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-019",
@@ -283,9 +266,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "ALLOW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "ALLOW",
+      "action_correct": false
     },
     {
       "id": "V3-020",
@@ -296,9 +280,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-021",
@@ -309,9 +294,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-022",
@@ -322,9 +308,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-023",
@@ -334,10 +321,11 @@
       "actual_score": 0.78,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-024",
@@ -347,10 +335,11 @@
       "actual_score": 0.62,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-025",
@@ -361,9 +350,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-026",
@@ -373,10 +363,11 @@
       "actual_score": 0.65,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-027",
@@ -387,9 +378,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-028",
@@ -399,10 +391,11 @@
       "actual_score": 0.7,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": true
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-029",
@@ -413,9 +406,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-030",
@@ -426,9 +420,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-031",
@@ -439,9 +434,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-032",
@@ -452,9 +448,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-033",
@@ -465,9 +462,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-034",
@@ -478,9 +476,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-035",
@@ -490,10 +489,11 @@
       "actual_score": 0.89,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-036",
@@ -504,9 +504,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-037",
@@ -517,9 +518,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-038",
@@ -530,9 +532,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-039",
@@ -543,9 +546,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-040",
@@ -556,9 +560,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-041",
@@ -569,9 +574,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-042",
@@ -582,9 +588,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-043",
@@ -595,9 +602,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-044",
@@ -608,9 +616,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-045",
@@ -621,9 +630,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-046",
@@ -634,9 +644,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-047",
@@ -647,9 +658,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-048",
@@ -660,9 +672,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-049",
@@ -673,9 +686,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-050",
@@ -686,9 +700,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-051",
@@ -699,9 +714,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-052",
@@ -712,9 +728,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-053",
@@ -725,9 +742,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-054",
@@ -738,9 +756,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-055",
@@ -751,9 +770,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-056",
@@ -764,9 +784,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-057",
@@ -776,10 +797,11 @@
       "actual_score": 0.86,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-058",
@@ -790,9 +812,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-059",
@@ -803,9 +826,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-060",
@@ -816,9 +840,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-061",
@@ -829,9 +854,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-062",
@@ -842,9 +868,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-063",
@@ -855,9 +882,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-064",
@@ -868,9 +896,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-065",
@@ -881,9 +910,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-066",
@@ -894,9 +924,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-067",
@@ -906,10 +937,11 @@
       "actual_score": 0.81,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-068",
@@ -920,9 +952,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-069",
@@ -933,9 +966,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-070",
@@ -946,9 +980,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-071",
@@ -959,9 +994,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-072",
@@ -972,9 +1008,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-073",
@@ -985,9 +1022,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-074",
@@ -998,9 +1036,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-075",
@@ -1010,10 +1049,11 @@
       "actual_score": 0.88,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-076",
@@ -1024,9 +1064,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-077",
@@ -1036,10 +1077,11 @@
       "actual_score": 0.85,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-078",
@@ -1050,9 +1092,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "ALLOW",
+      "raw_expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "ALLOW",
+      "action_correct": true
     },
     {
       "id": "V3-079",
@@ -1063,9 +1106,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-080",
@@ -1076,9 +1120,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-081",
@@ -1089,9 +1134,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-082",
@@ -1101,10 +1147,11 @@
       "actual_score": 0.84,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "HUMAN_REVIEW",
+      "expected_action": "BLOCK",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": false
     },
     {
       "id": "V3-083",
@@ -1115,9 +1162,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-084",
@@ -1128,9 +1176,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-085",
@@ -1141,9 +1190,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-086",
@@ -1154,9 +1204,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-087",
@@ -1167,9 +1218,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-088",
@@ -1180,9 +1232,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-089",
@@ -1193,9 +1246,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-090",
@@ -1206,9 +1260,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-091",
@@ -1219,9 +1274,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-092",
@@ -1232,9 +1288,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-093",
@@ -1245,9 +1302,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-094",
@@ -1258,9 +1316,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-095",
@@ -1271,9 +1330,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-096",
@@ -1284,9 +1344,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-097",
@@ -1297,9 +1358,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-098",
@@ -1310,9 +1372,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "HUMAN_REVIEW",
+      "raw_expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "HUMAN_REVIEW",
+      "action_correct": true
     },
     {
       "id": "V3-099",
@@ -1323,9 +1386,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     },
     {
       "id": "V3-100",
@@ -1336,9 +1400,10 @@
       "score_delta": 0.0,
       "score_pass": true,
       "expected_action": "BLOCK",
+      "raw_expected_action": "BLOCK",
       "actual_action": "BLOCK",
-      "action_correct": true,
-      "v3_specific": false
+      "raw_actual_action": "BLOCK",
+      "action_correct": true
     }
   ]
 }
