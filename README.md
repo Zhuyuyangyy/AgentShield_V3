@@ -1,136 +1,289 @@
 # AgentShield V3
 
-**行为链审计与多智能体风险治理系统**
+AgentShield V3 is a behavior-chain risk governance prototype for multi-agent tool-use systems. It records agent tool calls as graph nodes, propagates risk through behavior chains, applies governance decisions, and produces audit evidence plus counterfactual what-if analysis.
 
-V3 是 AgentShield 的第三代产品，聚焦于**多智能体行为链路**的实时审计、风险溯源与反事实推演。
+The project is currently positioned as both an engineering prototype and a research artifact for SCI-oriented experiments on multi-agent safety governance.
 
-## 核心定位
+## Why V3
 
-> V1 管 AI 说什么 → V2 管 Agent 工具做什么 → **V3 管多 Agent 行为链为什么这样做**
+Traditional guardrails usually judge a single prompt, response, or tool call in isolation. AgentShield V3 focuses on the behavior chain:
 
-## 技术架构
-
-```
-AgentShield V3
-├── ASF-BGT Framework（基础框架）
-│   ├── World（共享状态）
-│   ├── BranchTree（分支演化树）
-│   ├── Simulator（状态推演）
-│   └── CounterfactualEngine（反事实引擎）
-├── AgentBehaviorGraph（行为图，从V2继承）
-│   ├── 节点：Tool Call / Decision Point
-│   └── 边：因果关系 + 风险传播
-├── V3AuditLogger（审计日志）
-└── V3ShieldEngine（核心引擎）
-    ├── 行为捕获与节点化
-    ├── 风险传播计算
-    ├── 分支What-If反事实推演
-    └── 三级治理门控（ALLOW / REVIEW / BLOCK）
+```text
+V1: What did the AI say?
+V2: What tool did the agent call?
+V3: Why does this multi-agent behavior chain become risky?
 ```
 
-## 目录结构
+V3 is designed for scenarios where risk emerges across multiple steps, for example:
 
-```
+- querying sensitive fields and exporting them later,
+- staging data before external transfer,
+- privilege escalation through delegated tools,
+- audit-log bypass or callback smuggling,
+- bulk database operations with delayed impact.
+
+## Core Capabilities
+
+- **Behavior graph modeling**: converts every tool call into an `AgentBehaviorGraph` node.
+- **Risk propagation**: tracks local risk, inherited risk, downstream amplification, and critical nodes.
+- **Three-level governance**: returns `ALLOW`, `HUMAN_REVIEW`, or `BLOCK`.
+- **Future branch projection**: generates possible next-step branches for high-risk calls.
+- **Counterfactual intervention**: estimates risk reduction if a risky action is blocked earlier.
+- **Audit chain export**: keeps structured evidence for review, debugging, and research analysis.
+- **SCI benchmark workflow**: includes synthetic/semi-realistic dataset generation and baseline comparison scripts.
+
+## Repository Layout
+
+```text
 AgentShield_V3/
-├── backend/
-│   ├── app/
-│   │   ├── shield/
-│   │   │   ├── v3_engine.py         # 核心引擎
-│   │   │   ├── v3_audit_logger.py   # 审计日志
-│   │   │   └── agent_behavior_graph.py  # 行为图
-│   │   ├── api/
-│   │   │   └── routes.py            # FastAPI路由
-│   │   └── main.py                  # 服务入口（端口8011）
-│   └── tests/
-│       └── test_v3_engine.py        # 10/10测试全绿
-├── benchmark/
-│   ├── evaluate.py                  # 基准测试脚本
-│   └── test_cases/
-│       └── test_cases.json          # 30条测试用例
-├── docs/                            # 项目文档
-└── README.md
++-- backend/
+|   +-- app/
+|   |   +-- api/
+|   |   |   +-- routes.py
+|   |   +-- shield/
+|   |   |   +-- agent_behavior_graph.py
+|   |   |   +-- v3_audit_logger.py
+|   |   |   +-- v3_engine.py
+|   |   +-- main.py
+|   +-- tests/
+|       +-- test_v3_engine.py
++-- benchmark/
+|   +-- baselines.py
+|   +-- evaluate.py
+|   +-- generate_sci_dataset.py
+|   +-- results/
+|   |   +-- sci_baseline_report.json
+|   |   +-- sci_baseline_table.md
+|   +-- test_cases/
+|       +-- test_cases_v3_standard.json
+|       +-- test_cases_sci_600.json
++-- docs/
+|   +-- paper_plan.md
++-- pytest.ini
++-- requirements.txt
++-- README.md
 ```
 
-## 核心能力
+## Quick Start
 
-### 1. 行为链捕获
-- 工具调用 → 行为图节点（携带风险评分）
-- 因果链追踪（parent_node_id）
-- 多Agent并发场景下的独立会话管理
-
-### 2. 风险传播
-- 基于贝叶斯的风险传播算法
-- `risk_propagation()` 从污点源向下游节点推算
-- 关键节点识别（影响度高 + 风险高）
-
-### 3. What-If 反事实推演
-- 高风险场景自动触发反事实分析
-- 对比：阻止 vs 放行 vs 变形后的风险变化
-- `whatif_result.risk_delta` 量化干预效果
-
-### 4. 三级治理门控
-
-| 风险区间 | 动作 | 说明 |
-|---------|------|------|
-| < 0.70 | ALLOW | 自动放行 |
-| 0.70-0.89 | REVIEW | 人工复核 |
-| ≥ 0.90 | BLOCK | 自动拦截 |
-
-## 基准测试
+### 1. Install Dependencies
 
 ```bash
-cd benchmark
-python evaluate.py
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-**当前结果：30条测试用例，Score准确率 100%，Action准确率 80%**
+### 2. Run Tests
 
-| 类别 | Score准确 | Action准确 |
-|------|---------|----------|
-| sensitive_data_access | 8/8 | 6/8 |
-| external_network_transfer | 5/5 | 4/5 |
-| bulk_operations | 5/5 | 5/5 |
-| privilege_escalation | 4/4 | 4/4 |
-| behavior_chain_risk | 5/5 | 4/5 |
-| governance_bypass | 3/3 | 1/3 |
+```bash
+python -m pytest -q
+```
 
-## API
+Current verified result:
 
-### POST /api/v3/process_call
-处理工具调用并返回治理决策。
+```text
+10 passed
+```
 
-**请求体：**
+### 3. Start the API Server
+
+```bash
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+```
+
+Then open:
+
+- API root: `http://localhost:8011/`
+- Swagger docs: `http://localhost:8011/docs`
+- Health check: `http://localhost:8011/health`
+
+On Windows, you can also run:
+
+```bash
+start.bat
+```
+
+## API Example
+
+### Process a Tool Call
+
+```http
+POST /api/v3/process_call
+```
+
+Request:
+
 ```json
 {
+  "session_id": "demo-session",
   "agent_id": "data_agent",
   "tool_name": "execute_sql",
-  "params": {"query": "SELECT phone FROM customers"},
+  "params": {
+    "query": "SELECT phone, id_card FROM customers"
+  },
   "risk_score": 0.92,
   "fuse_action": "BLOCK"
 }
 ```
 
-**响应：**
+Response fields include:
+
 ```json
 {
-  "call_id": "call_abc123",
-  "node_id": "node_xyz789",
-  "gate_result": {"action": "BLOCK", "reason": "risk_score >= 0.90", "score": 0.92},
-  "future_branches": ["Branch(...)", "Branch(...)"],
-  "whatif_result": {"risk_delta": -0.46, "projected_outcome": {...}}
+  "call_id": "call_xxxxxxxx",
+  "node_id": "node_xxxxxxxx",
+  "decision": "block",
+  "risk_level": "critical",
+  "gate_result": {
+    "action": "BLOCK",
+    "score": 0.92
+  },
+  "future_branches": [],
+  "whatif_result": {}
 }
 ```
 
-### GET /api/v3/status/{session_id}
-查询会话的当前治理状态和行为链摘要。
+### Other Endpoints
 
-## 端口
+- `GET /api/v3/status/{session_id}`
+- `POST /api/v3/fork_branch`
+- `GET /api/v3/export_chain/{session_id}`
+- `GET /api/v3/behavior_graph/{session_id}`
+- `POST /api/v3/simulate_steps`
 
-- **V3 Backend**: 8011
-- **V2 Backend**: 8010
-- **MarketingCouncil**: 8009
-- **TCM-Mind-RAG**: 8000
+## Benchmark
 
-## Git Tag
+Run the standard regression benchmark:
 
-`agentshield-v3-bench-30` (本地 tag)
+```bash
+python benchmark\evaluate.py
+```
+
+Run the V3 standard benchmark:
+
+```bash
+python benchmark\evaluate_v3.py
+```
+
+The current restored engine has been verified with:
+
+```text
+Score accuracy: 100/100
+Action accuracy: 100/100
+```
+
+## SCI Experiment Workflow
+
+The repository now includes a reproducible SCI-oriented experiment path.
+
+### 1. Generate the SCI-600 Dataset
+
+```bash
+python benchmark\generate_sci_dataset.py
+```
+
+Default output:
+
+```text
+benchmark/test_cases/test_cases_sci_600.json
+```
+
+The generated dataset keeps the existing benchmark schema and adds optional chain metadata:
+
+- `chain_id`
+- `step_index`
+- `attack_stage`
+- `semi_realistic_trace`
+
+### 2. Run Baseline Comparison
+
+```bash
+python benchmark\baselines.py
+```
+
+Default outputs:
+
+- `benchmark/results/sci_baseline_report.json`
+- `benchmark/results/sci_baseline_table.md`
+
+Current snapshot on the deterministic SCI-600 dataset:
+
+| Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
+|---|---:|---:|---:|---:|---:|
+| Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% |
+| Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% |
+| Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% |
+| AgentShield chain-aware | 75.33% | 72.61% | 84.79% | 0.00% | 6.40% |
+
+These results are an internal research milestone. For SCI submission, the next step is to add ablation studies and semi-real traces from controlled LangChain, AutoGen, or internal agent workflows.
+
+### 3. Generate the V3.1 Semi-Real Trace Dataset
+
+```bash
+python benchmark\generate_semireal_traces.py
+```
+
+Default output:
+
+```text
+benchmark/test_cases/test_cases_semireal_150.json
+```
+
+The V3.1 dataset contains 150 controlled semi-real traces and 405 tool-call steps. It preserves trace-level labels, parent-child step links, critical intervention steps, and anonymized tool inputs.
+
+### 4. Run Semi-Real Trace Evaluation
+
+```bash
+python benchmark\evaluate_semireal.py
+```
+
+Default outputs:
+
+- `benchmark/results/semireal_baseline_report.json`
+- `benchmark/results/semireal_baseline_table.md`
+
+Current snapshot:
+
+| Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
+|---|---:|---:|---:|---:|---:|
+| Tool-name rules | 33.33% | 17.09% | 0.00% | 91.67% | 0.00% |
+| Content keywords | 33.33% | 19.61% | 0.00% | 50.00% | 0.00% |
+| Local context | 66.67% | 63.37% | 16.67% | 0.00% | 0.00% |
+| AgentShield chain-aware | 76.67% | 75.11% | 75.00% | 0.00% | 0.00% |
+
+## Research Direction
+
+The current paper route is documented in:
+
+```text
+docs/paper_plan.md
+```
+
+Recommended SCI framing:
+
+- problem: single-call guardrails miss behavior-chain risk,
+- method: behavior graph plus chain-aware governance,
+- evidence: standard benchmark, SCI-600 dataset, baseline comparison, ablation, latency, case studies,
+- next data need: anonymized or semi-real multi-agent tool-call traces.
+
+## Development Notes
+
+- Keep patent drafts, application documents, private datasets, backups, and local experiment dumps out of git.
+- Prefer committing source, tests, benchmark scripts, sanitized datasets, and reproducible reports only.
+- Do not commit `__pycache__`, `.pytest_cache`, raw credentials, or private logs.
+
+Suggested verification before committing:
+
+```bash
+python -m pytest -q
+python benchmark\generate_sci_dataset.py
+python benchmark\baselines.py
+python benchmark\generate_semireal_traces.py
+python benchmark\evaluate_semireal.py
+```
+
+## Status
+
+The V3 core engine, tests, benchmark runner, SCI dataset generator, baseline report workflow, and V3.1 semi-real trace benchmark are currently operational. The project is ready for the next research phase: ablation experiments, latency analysis, and case-study visualization.
