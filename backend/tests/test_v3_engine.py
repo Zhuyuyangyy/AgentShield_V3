@@ -1,27 +1,28 @@
 """
 AgentShield V3 Engine Tests
-测试 V3 核心引擎：行为链处理 + 分支推演 + 治理决策
+Tests the V3 core engine: behavior chain handling, branch simulation, and governance decisions.
 """
 
-import pytest
 import sys
-import os
+from pathlib import Path
 
-# 硬编码绝对路径
-ASF_BGT_ROOT = r"D:\ZYY Project\ASF-BGT-Framework"
-AGENT_SHIELD_V2_ROOT = r"D:\ZYY Project\agent-shield-v2\backend"
-WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import pytest
 
-sys.path.insert(0, ASF_BGT_ROOT)
-sys.path.insert(0, AGENT_SHIELD_V2_ROOT)
-sys.path.insert(0, WORKSPACE)
+_CURRENT_DIR = Path(__file__).parent.resolve()
+_BACKEND_DIR = _CURRENT_DIR.parent
+WORKSPACE = str(_BACKEND_DIR)
+ASF_BGT_ROOT = str(_BACKEND_DIR.parent.parent / "ASF-BGT-Framework")
+AGENT_SHIELD_V2_ROOT = str(_BACKEND_DIR.parent.parent / "agent-shield-v2" / "backend")
+
+for path in [ASF_BGT_ROOT, AGENT_SHIELD_V2_ROOT, WORKSPACE]:
+    while path in sys.path:
+        sys.path.remove(path)
+for path in [AGENT_SHIELD_V2_ROOT, ASF_BGT_ROOT, WORKSPACE]:
+    sys.path.insert(0, path)
 
 
 class TestV3EngineBasics:
-    """V3 引擎基本功能测试"""
-
     def test_engine_creation(self):
-        """引擎可以正常创建"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(
@@ -35,7 +36,6 @@ class TestV3EngineBasics:
         assert engine.world is not None
 
     def test_engine_process_tool_call(self):
-        """处理工具调用 → 行为图谱 + 治理决策"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_session_002")
@@ -52,10 +52,10 @@ class TestV3EngineBasics:
         assert "call_id" in result
         assert "behavior_graph_summary" in result
         assert "gate_result" in result
-        assert result["gate_result"]["action"] in ["BLOCK", "REVIEW", "ALLOW"]
+        assert result["gate_result"]["action"] in ["BLOCK", "HUMAN_REVIEW", "REVIEW", "ALLOW"]
+        assert result["gate_result"]["score"] == pytest.approx(0.85)
 
     def test_engine_high_risk_triggers_whatif(self):
-        """高风险调用触发 What-if 反事实推演"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(
@@ -72,12 +72,12 @@ class TestV3EngineBasics:
             fuse_action="block",
         )
 
+        assert result["gate_result"]["action"] == "BLOCK"
         assert result["whatif_result"] is not None
         assert "scenario_id" in result["whatif_result"]
         assert result["whatif_result"]["risk_delta"] < 0
 
     def test_engine_low_risk_allows(self):
-        """低风险调用直接放行"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_session_004", risk_threshold=0.70)
@@ -94,13 +94,12 @@ class TestV3EngineBasics:
         assert result["whatif_result"] is None
 
     def test_fork_branch(self):
-        """分支创建成功"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_session_005")
 
         branch_id = engine.fork_branch(
-            branch_label="人工干预点A",
+            branch_label="manual_intervention_A",
             intervention={"type": "block_tool_call", "tool_name": "send_email"},
         )
 
@@ -109,7 +108,6 @@ class TestV3EngineBasics:
         assert status["branch_count"] >= 1
 
     def test_governance_status(self):
-        """治理状态查询正常"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_session_006")
@@ -127,7 +125,6 @@ class TestV3EngineBasics:
         assert status["behavior_graph"]["total_nodes"] == 1
 
     def test_export_chain(self):
-        """行为链导出正常"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_session_007")
@@ -145,10 +142,7 @@ class TestV3EngineBasics:
 
 
 class TestBehaviorGraph:
-    """行为图谱测试（继承 V2 AgentBehaviorGraph）"""
-
     def test_add_node(self):
-        """节点添加成功"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_graph_001")
@@ -163,7 +157,6 @@ class TestBehaviorGraph:
         assert result["behavior_graph_summary"]["total_nodes"] == 1
 
     def test_critical_node_detection(self):
-        """关键风险节点识别"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_graph_002")
@@ -188,10 +181,7 @@ class TestBehaviorGraph:
 
 
 class TestRiskPropagation:
-    """风险传播计算测试"""
-
     def test_risk_propagation_chain(self):
-        """风险沿调用链传播"""
         from app.shield.v3_engine import V3ShieldEngine
 
         engine = V3ShieldEngine(session_id="test_risk_001")

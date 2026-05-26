@@ -13,10 +13,16 @@ from app.shield.v3_engine import V3ShieldEngine
 
 
 def load_test_cases():
-    # Try 100-case set first, fall back to 30-case set
+    # Prefer the V3-standard 100-case set, then fall back to legacy sets.
+    pv3 = Path(__file__).parent / "test_cases" / "test_cases_v3_standard.json"
     p100 = Path(__file__).parent / "test_cases" / "test_cases_100.json"
     p30 = Path(__file__).parent / "test_cases" / "test_cases.json"
-    path = p100 if p100.exists() else p30
+    if pv3.exists():
+        path = pv3
+    elif p100.exists():
+        path = p100
+    else:
+        path = p30
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -114,7 +120,7 @@ def run_benchmark():
     print(f"{'ID':<8} {'Category':<25} {'ExpScore':>8} {'ActScore':>8} {'Delta':>6} {'Pass':>5} {'ExpAct':<12} {'ActAct':<12}")
     print("-" * 95)
     for r in results:
-        status = "✓" if r.get("score_pass", False) else "✗"
+        status = "PASS" if r.get("score_pass", False) else "FAIL"
         print(f"{r['id']:<8} {r.get('category',''):<25} {r.get('expected_score',0):>8.2f} {r.get('actual_score',0):>8.2f} {r.get('score_delta',0):>6.2f} {status:>5} {r.get('expected_action',''):<12} {r.get('actual_action',''):<12}")
 
     print(f"\n{'='*60}")

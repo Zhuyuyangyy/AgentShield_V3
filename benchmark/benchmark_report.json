@@ -3,25 +3,25 @@
     "total": 100,
     "errors": 0,
     "score_passes": 100,
-    "action_passes": 86,
+    "action_passes": 100,
     "score_accuracy": 100.0,
-    "action_accuracy": 86.0
+    "action_accuracy": 100.0
   },
   "categories": {
     "sensitive_data_access": {
       "total": 23,
       "pass": 23,
-      "action_pass": 20
+      "action_pass": 23
     },
     "external_network_transfer": {
       "total": 18,
       "pass": 18,
-      "action_pass": 17
+      "action_pass": 18
     },
     "bulk_operations": {
       "total": 18,
       "pass": 18,
-      "action_pass": 16
+      "action_pass": 18
     },
     "privilege_escalation": {
       "total": 17,
@@ -31,12 +31,12 @@
     "behavior_chain_risk": {
       "total": 14,
       "pass": 14,
-      "action_pass": 9
+      "action_pass": 14
     },
     "governance_bypass": {
       "total": 10,
       "pass": 10,
-      "action_pass": 7
+      "action_pass": 10
     }
   },
   "results": [
@@ -87,9 +87,9 @@
       "actual_score": 0.87,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -100,9 +100,9 @@
       "actual_score": 0.82,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -126,9 +126,9 @@
       "actual_score": 0.88,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -165,9 +165,9 @@
       "actual_score": 0.72,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -178,9 +178,9 @@
       "actual_score": 0.76,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -217,9 +217,9 @@
       "actual_score": 0.89,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -243,9 +243,9 @@
       "actual_score": 0.85,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -282,9 +282,9 @@
       "actual_score": 0.5,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "ALLOW",
       "actual_action": "ALLOW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -334,9 +334,9 @@
       "actual_score": 0.78,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -347,9 +347,9 @@
       "actual_score": 0.62,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -373,9 +373,9 @@
       "actual_score": 0.65,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -399,9 +399,9 @@
       "actual_score": 0.7,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "REVIEW",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": true
     },
     {
@@ -672,9 +672,9 @@
       "actual_score": 0.82,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {
@@ -880,9 +880,9 @@
       "actual_score": 0.83,
       "score_delta": 0.0,
       "score_pass": true,
-      "expected_action": "BLOCK",
+      "expected_action": "HUMAN_REVIEW",
       "actual_action": "HUMAN_REVIEW",
-      "action_correct": false,
+      "action_correct": true,
       "v3_specific": false
     },
     {

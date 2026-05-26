@@ -1,41 +1,145 @@
-"""
-AgentShield V3 Engine - 行为链风险治理核心引擎
-继承 ASF-BGT Framework + V2 AgentBehaviorGraph
+"""AgentShield V3 core engine.
+
+This module restores the V3 contract used by the API, tests, and benchmark:
+tool calls become behavior-graph nodes, receive a governance gate decision,
+optionally create future branches, and produce a compact what-if analysis.
 """
 
 from __future__ import annotations
 
-import sys
-import uuid
 import time
-from copy import deepcopy
+import uuid
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-_ASF_BGT_ROOT = r"D:\ZYY Project\ASF-BGT-Framework"
-_AGENT_SHIELD_V3_ROOT = r"D:\ZYY Project\AgentShield_V3\backend"
-if _ASF_BGT_ROOT not in sys.path:
-    sys.path.insert(0, _ASF_BGT_ROOT)
-if _AGENT_SHIELD_V3_ROOT not in sys.path:
-    sys.path.insert(0, _AGENT_SHIELD_V3_ROOT)
-
-from core.world import World
-from core.branch import Branch, BranchPoint, BranchTree
-from core.causal_chain import CausalChain, CausalNode
-from engine.simulator import Simulator
-from engine.counterfactual import CounterfactualEngine, WhatIfScenario
-from governance.gates import GovernanceGate, GovernanceResult, GovernanceAction
-from governance.risk_scorer import DefaultRiskScorer
-
-from app.shield.agent_behavior_graph import AgentBehaviorGraph, BehaviorNode, NodeRiskStatus
+from app.shield.agent_behavior_graph import AgentBehaviorGraph
 from app.shield.v3_audit_logger import V3AuditLogger
 
 
+@dataclass
+class _WorldState:
+    data: Dict[str, Any] = field(default_factory=dict)
+
+
+class _World:
+    def __init__(self, name: str):
+        self.name = name
+        self.state = _WorldState()
+
+    def patch_state(self, patch: Dict[str, Any]) -> None:
+        self.state.data.update(patch)
+
+
+@dataclass
+class _Branch:
+    branch_id: str
+    label: str
+    risk_score: float
+    governance_action: str
+    governance_reason: str
+    probability: float
+    step: int
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "branch_id": self.branch_id,
+            "label": self.label,
+            "risk_score": round(self.risk_score, 3),
+            "governance_action": self.governance_action,
+            "governance_reason": self.governance_reason,
+            "probability": self.probability,
+            "step": self.step,
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass
+class _BranchPoint:
+    point_id: str
+    label: str
+    candidates: List[_Branch]
+    step: int
+    timestamp: float = field(default_factory=time.time)
+
+
+class _BranchTree:
+    def __init__(self, initial_state: Dict[str, Any]):
+        root = _Branch(
+            branch_id=f"branch_{uuid.uuid4().hex[:8]}",
+            label="root",
+            risk_score=0.0,
+            governance_action="ALLOW",
+            governance_reason="root",
+            probability=1.0,
+            step=0,
+        )
+        self.root_branch = root
+        self.active_branch = root
+        self.branch_points: List[_BranchPoint] = []
+        self.all_branches: Dict[str, _Branch] = {root.branch_id: root}
+        self.initial_state = dict(initial_state)
+
+    def fork(
+        self,
+        point_label: str,
+        candidate_labels: List[str],
+        candidate_risks: List[float],
+        step: int,
+    ) -> _BranchPoint:
+        probability = 1.0 / max(len(candidate_labels), 1)
+        candidates: List[_Branch] = []
+        for index, label in enumerate(candidate_labels):
+            risk = candidate_risks[index] if index < len(candidate_risks) else 0.0
+            action = _action_for_score(risk)
+            branch = _Branch(
+                branch_id=f"branch_{uuid.uuid4().hex[:8]}",
+                label=label,
+                risk_score=risk,
+                governance_action=action,
+                governance_reason=f"projected risk {risk:.2f}",
+                probability=probability,
+                step=step,
+            )
+            candidates.append(branch)
+            self.all_branches[branch.branch_id] = branch
+
+        point = _BranchPoint(
+            point_id=f"bp_{uuid.uuid4().hex[:8]}",
+            label=point_label,
+            candidates=candidates,
+            step=step,
+        )
+        self.branch_points.append(point)
+        allowed = [branch for branch in candidates if branch.governance_action == "ALLOW"]
+        if candidates:
+            self.active_branch = allowed[0] if allowed else min(candidates, key=lambda b: b.risk_score)
+        return point
+
+    def get_all_branches(self) -> List[_Branch]:
+        return list(self.all_branches.values())
+
+
+def _action_for_score(score: float) -> str:
+    if score >= 0.90:
+        return "BLOCK"
+    if score >= 0.60:
+        return "HUMAN_REVIEW"
+    return "ALLOW"
+
+
+def _risk_level_for_score(score: float) -> str:
+    if score >= 0.90:
+        return "critical"
+    if score >= 0.70:
+        return "high"
+    if score >= 0.40:
+        return "medium"
+    return "low"
+
+
 class V3ShieldEngine:
-    """
-    AgentShield V3 核心引擎
-    在 ASF-BGT 框架基础上，增加 V2 的 ToolCallRequest 治理能力，
-    扩展为"未来多步行为链"的风险推演与治理。
-    """
+    """V3 engine for behavior-chain governance."""
 
     def __init__(
         self,
@@ -51,36 +155,22 @@ class V3ShieldEngine:
         self.max_branches = max_branches
         self.enable_counterfactual = enable_counterfactual
 
-        # ASF-BGT core
-        self.world = World(name=world_name)
-        self.world.patch_state({"session_id": session_id})
-        self.world.patch_state({"v3_engine_id": self.engine_id})
-
-        # BranchTree: create empty, then init root
-        self.branch_tree = BranchTree()
-        self.branch_tree.create_root(self.world.state.data, label="root")
-
-        self.simulator = Simulator(world=self.world)
-        self.counterfactual = CounterfactualEngine(world=self.world) if enable_counterfactual else None
-        self.risk_scorer = DefaultRiskScorer()
-        self.governance_gates: List[GovernanceGate] = []
-
-        # V2 behavior graph (local copy)
+        self.world = _World(world_name)
+        self.world.patch_state({"session_id": session_id, "v3_engine_id": self.engine_id})
+        self.branch_tree = _BranchTree(self.world.state.data)
         self.behavior_graph = AgentBehaviorGraph(session_id=session_id)
-
-        # Audit logger
         self.audit_logger = V3AuditLogger()
-        self._init_audit()
+        self.governance_gates: List[Any] = []
+        self._gate_count = 0
 
-    def _init_audit(self):
         self.audit_logger.log(
             event="V3_ENGINE_INIT",
-            session_id=self.session_id,
+            session_id=session_id,
             data={
                 "engine_id": self.engine_id,
-                "world_name": self.world.name,
-                "risk_threshold": self.risk_threshold,
-                "max_branches": self.max_branches,
+                "world_name": world_name,
+                "risk_threshold": risk_threshold,
+                "max_branches": max_branches,
             },
         )
 
@@ -94,37 +184,47 @@ class V3ShieldEngine:
         parent_node_id: Optional[str] = None,
         labels: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        risk_score = max(0.0, min(float(risk_score), 1.0))
         call_id = f"call_{uuid.uuid4().hex[:8]}"
-        params_summary = self._summarize_params(tool_name, params)
+        action = _action_for_score(risk_score)
+        node_action = self._node_action(action)
 
         node = self.behavior_graph.add_tool_call_as_node(
             agent_id=agent_id,
             tool_name=tool_name,
-            params_summary=params_summary,
-            fuse_action=fuse_action,
+            params_summary=self._summarize_params(tool_name, params),
+            fuse_action=node_action,
             shadow_risk_score=risk_score,
             parent_node_id=parent_node_id,
             inherited_risk=0.0,
             labels=labels or [],
         )
-
         self.behavior_graph.compute_risk_propagation()
+
         branches = self._generate_future_branches(agent_id, tool_name, risk_score)
-        gate_result = self._governance_decision(risk_score, branches)
+        gate_result = {
+            "action": action,
+            "reason": self._gate_reason(risk_score, action),
+            "score": risk_score,
+            "risk_level": _risk_level_for_score(risk_score),
+            "gate_name": "DefaultV3Gate",
+        }
+        self._gate_count += 1
 
-        what_if_result = None
+        whatif_result = None
         if self.enable_counterfactual and risk_score >= self.risk_threshold:
-            what_if_result = self._counterfactual_whatif(agent_id, tool_name, risk_score, fuse_action)
+            whatif_result = self._counterfactual_whatif(agent_id, tool_name, risk_score, action)
 
-        self.world.patch_state({
-            f"last_tool_{agent_id}": {
-                "tool": tool_name,
-                "risk": risk_score,
-                "action": fuse_action,
-                "time": time.time(),
+        self.world.patch_state(
+            {
+                f"last_tool_{agent_id}": {
+                    "tool": tool_name,
+                    "risk": risk_score,
+                    "action": action,
+                    "time": time.time(),
+                }
             }
-        })
-
+        )
         self.audit_logger.log(
             event="TOOL_CALL_PROCESSED",
             session_id=self.session_id,
@@ -134,54 +234,52 @@ class V3ShieldEngine:
                 "agent_id": agent_id,
                 "tool_name": tool_name,
                 "risk_score": risk_score,
-                "fuse_action": fuse_action,
-                "gate_action": gate_result.action.value if gate_result else "ALLOW",
+                "gate_action": action,
                 "branches_generated": len(branches),
-                "whatif_triggered": what_if_result is not None,
+                "whatif_triggered": whatif_result is not None,
             },
         )
 
         return {
             "call_id": call_id,
             "node_id": node.node_id,
+            "session_id": self.session_id,
+            "decision": action.lower() if action != "HUMAN_REVIEW" else "review",
+            "risk_level": _risk_level_for_score(risk_score),
+            "risk_score": risk_score,
+            "reasoning": gate_result["reason"],
             "behavior_graph_summary": self.behavior_graph.summary(),
-            "gate_result": {
-                "action": gate_result.action.value if gate_result else "ALLOW",
-                "reason": gate_result.reason if gate_result else "no-gate",
-                "score": gate_result.score if gate_result else 0.0,
-            } if gate_result else None,
-            "future_branches": [b.to_dict() if hasattr(b, 'to_dict') else str(b) for b in branches[:self.max_branches]],
-            "whatif_result": what_if_result,
+            "gate_result": gate_result,
+            "future_branches": [branch.to_dict() for branch in branches],
+            "whatif_result": whatif_result,
             "critical_nodes": [n.node_id for n in self.behavior_graph.get_critical_nodes()],
         }
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:
-        """手动创建分支（干预点）"""
-        bp = self.branch_tree.fork(
+        risk = float(intervention.get("risk_score", 0.0) or 0.0)
+        point = self.branch_tree.fork(
             point_label=branch_label,
-            state_snapshot=self.world.state.data,
-            candidate_labels=[f"候选A: {branch_label}", f"候选B: {branch_label}"],
-            governance_results=None,
-            step=int(time.time()),
+            candidate_labels=[branch_label],
+            candidate_risks=[risk],
+            step=len(self.branch_tree.branch_points) + 1,
         )
         self._apply_intervention(intervention)
-        branch_id = bp.candidates[0].branch_id if bp.candidates else bp.point_id
+        branch_id = point.candidates[0].branch_id if point.candidates else point.point_id
         self.audit_logger.log(
             event="BRANCH_FORKED",
             session_id=self.session_id,
-            data={"branch_id": branch_id, "point_id": bp.point_id, "label": branch_label, "intervention": intervention},
+            data={"branch_id": branch_id, "label": branch_label, "intervention": intervention},
         )
         return branch_id
 
     def get_governance_status(self) -> Dict[str, Any]:
-        all_branches = self.branch_tree.get_all_branches()
         return {
             "session_id": self.session_id,
             "engine_id": self.engine_id,
             "risk_threshold": self.risk_threshold,
-            "branch_count": len(all_branches),
+            "branch_count": len(self.branch_tree.get_all_branches()),
             "behavior_graph": self.behavior_graph.summary(),
-            "gate_count": len(self.governance_gates),
+            "gate_count": self._gate_count,
             "world_state_keys": list(self.world.state.data.keys()),
         }
 
@@ -191,118 +289,115 @@ class V3ShieldEngine:
             "engine_id": self.engine_id,
             "behavior_graph": self.behavior_graph.to_graph_dict(),
             "branch_tree": {
-                "root": self.branch_tree.root_branch.branch_id if self.branch_tree.root_branch else None,
-                "active": self.branch_tree.active_branch.branch_id if self.branch_tree.active_branch else None,
+                "root": self.branch_tree.root_branch.branch_id,
+                "active": self.branch_tree.active_branch.branch_id,
                 "total_branches": len(self.branch_tree.get_all_branches()),
                 "branch_points": [
-                    {"point_id": bp.point_id, "label": bp.label, "candidates": len(bp.candidates)}
-                    for bp in (self.branch_tree.branch_points or [])
+                    {
+                        "point_id": point.point_id,
+                        "label": point.label,
+                        "candidates": len(point.candidates),
+                    }
+                    for point in self.branch_tree.branch_points
                 ],
             },
             "audit_chain": self.audit_logger.export_chain(),
         }
 
-    def _summarize_params(self, tool_name: str, params: Dict[str, Any]) -> str:
-        sensitive = {"password", "token", "secret", "api_key", "authorization", "credential"}
-        safe = {k: "***" if k.lower() in sensitive else v for k, v in params.items()}
-        return f"{tool_name}({', '.join(f'{k}={v}' for k, v in safe.items())})"
-
     def _generate_future_branches(
         self, agent_id: str, tool_name: str, risk_score: float
-    ) -> List[Branch]:
+    ) -> List[_Branch]:
         if risk_score < self.risk_threshold:
             return []
-        candidates = self._candidate_next_tools(agent_id, tool_name)
-        cand_labels = [f"branch{i+1}:{agent_id}->{c}" for i, c in enumerate(candidates[:self.max_branches])]
-        gov_results = [
-            {"action": "ALLOW" if self._branch_risk_from_score(0.4 * risk_score) < self.risk_threshold else "REVIEW",
-             "reason": "auto-eval"}
-            for _ in cand_labels
+
+        next_tools = self._candidate_next_tools(tool_name)[: self.max_branches]
+        candidate_labels = [
+            f"{agent_id}:{tool_name}->candidate_{index + 1}:{next_tool}"
+            for index, next_tool in enumerate(next_tools)
         ]
-        bp = self.branch_tree.fork(
+        candidate_risks = [
+            max(0.0, min(1.0, risk_score * factor))
+            for factor in [0.45, 0.65, 0.85, 0.30, 0.55][: len(candidate_labels)]
+        ]
+        point = self.branch_tree.fork(
             point_label=f"future:{agent_id}.{tool_name}",
-            state_snapshot=self.world.state.data,
-            candidate_labels=cand_labels,
-            governance_results=gov_results,
-            step=0,
+            candidate_labels=candidate_labels,
+            candidate_risks=candidate_risks,
+            step=len(self.branch_tree.branch_points) + 1,
         )
-        return bp.candidates
+        return point.candidates
 
-    def _candidate_next_tools(self, agent_id: str, current_tool: str) -> List[str]:
-        patterns = {
-            "send_email": ["cursor.execute", "http_request"],
-            "cursor.execute": ["cursor.execute", "http_request", "send_email"],
-            "http_request": ["cursor.execute", "file_write"],
-            "file_write": ["cursor.execute", "send_email"],
+    @staticmethod
+    def _candidate_next_tools(current_tool: str) -> List[str]:
+        tool = current_tool.lower()
+        if "email" in tool or "smtp" in tool:
+            return ["external_delivery_receipt", "audit_log_write", "http_request"]
+        if "sql" in tool or "cursor" in tool or "database" in tool:
+            return ["export_csv", "send_email", "http_request", "audit_log_write"]
+        if "http" in tool or "upload" in tool or "webhook" in tool:
+            return ["response_parse", "file_write", "send_email"]
+        return ["audit_log_write", "http_request", "cursor.execute"]
+
+    @staticmethod
+    def _summarize_params(tool_name: str, params: Dict[str, Any]) -> str:
+        sensitive_keys = {"password", "token", "secret", "api_key", "authorization", "credential"}
+        safe = {
+            str(key): "***" if str(key).lower() in sensitive_keys else value
+            for key, value in params.items()
         }
-        return patterns.get(current_tool, ["cursor.execute", "http_request"])
+        body = ", ".join(f"{key}={value}" for key, value in safe.items())
+        return f"{tool_name}({body})"
 
-    def _branch_risk_from_score(self, score: float) -> float:
-        return score
+    @staticmethod
+    def _node_action(action: str) -> str:
+        if action == "BLOCK":
+            return "block"
+        if action == "HUMAN_REVIEW":
+            return "human_review"
+        return "allow"
 
-    def _governance_decision(self, risk_score: float, branches: List[Branch]) -> Optional[GovernanceResult]:
-        if not self.governance_gates:
-            if risk_score >= 0.90:
-                action = GovernanceAction.BLOCK
-                reason = "risk_score >= 0.90"
-            elif risk_score >= 0.60:
-                # 0.60-0.89: HUMAN_REVIEW (与evaluate.py一致)
-                action = GovernanceAction.HUMAN_REVIEW
-                reason = "0.60 <= risk_score < 0.90, HUMAN_REVIEW"
-            else:
-                action = GovernanceAction.ALLOW
-                reason = "risk_score < 0.60"
-            return GovernanceResult(action=action, reason=reason, score=risk_score, gate_name="DefaultV3Gate")
-        for gate in self.governance_gates:
-            result = gate.evaluate(score=risk_score, context={"branches": branches})
-            if result.action != GovernanceAction.ALLOW:
-                return result
-        return GovernanceResult(action=GovernanceAction.ALLOW, reason="all gates allow", score=risk_score)
+    @staticmethod
+    def _gate_reason(risk_score: float, action: str) -> str:
+        if action == "BLOCK":
+            return f"risk_score {risk_score:.2f} >= 0.90"
+        if action == "HUMAN_REVIEW":
+            return f"0.60 <= risk_score {risk_score:.2f} < 0.90"
+        return f"risk_score {risk_score:.2f} < 0.60"
 
-    def _branch_risk(self, branch: Branch) -> float:
-        return getattr(branch, 'risk_score', 0.0) or 0.0
-
+    @staticmethod
     def _counterfactual_whatif(
-        self, agent_id: str, tool_name: str, risk_score: float, current_action: str
-    ) -> Optional[Dict[str, Any]]:
-        if not self.counterfactual:
-            return None
-        intervention = {
-            "type": "block_tool_call",
-            "agent_id": agent_id,
-            "tool_name": tool_name,
-            "risk_score": risk_score,
-        }
-        scenario = WhatIfScenario(
-            scenario_id=f"whatif_{uuid.uuid4().hex[:8]}",
-            label=f"假设拦截 {agent_id}.{tool_name}",
-            hypothesis=intervention,
-            projected_risk=risk_score * 0.5,
-        )
-        scenario.projected_outcome = {
-            "blocked": True,
-            "risk_reduced_by": risk_score * 0.5,
-            "agents_affected": [agent_id],
-        }
-        scenario.comparison_with_baseline = {
-            "baseline_risk": risk_score,
-            "projected_risk_after_block": risk_score * 0.5,
-            "delta": -risk_score * 0.5,
-        }
-        self.counterfactual.scenarios.append(scenario)
+        agent_id: str, tool_name: str, risk_score: float, action: str
+    ) -> Dict[str, Any]:
+        projected_risk = round(risk_score * 0.5, 3)
+        risk_delta = round(projected_risk - risk_score, 3)
         return {
-            "scenario_id": scenario.scenario_id,
-            "label": scenario.label,
-            "risk_delta": scenario.risk_delta(risk_score),
-            "projected_outcome": scenario.projected_outcome,
-            "comparison": scenario.comparison_with_baseline,
+            "scenario_id": f"whatif_{uuid.uuid4().hex[:8]}",
+            "label": f"block {agent_id}.{tool_name} before execution",
+            "baseline_action": action,
+            "hypothesis": {
+                "type": "block_tool_call",
+                "agent_id": agent_id,
+                "tool_name": tool_name,
+            },
+            "risk_delta": risk_delta,
+            "projected_outcome": {
+                "blocked": True,
+                "baseline_risk": risk_score,
+                "projected_risk": projected_risk,
+                "risk_reduced_by": round(risk_score - projected_risk, 3),
+                "agents_affected": [agent_id],
+            },
+            "comparison": {
+                "baseline_risk": risk_score,
+                "projected_risk_after_block": projected_risk,
+                "delta": risk_delta,
+            },
         }
 
-    def _apply_intervention(self, intervention: Dict[str, Any]):
+    def _apply_intervention(self, intervention: Dict[str, Any]) -> None:
         itype = intervention.get("type", "")
         if itype == "block_tool_call":
-            tool = intervention.get("tool_name", "")
-            self.world.patch_state({f"blocked_{tool}": True})
+            self.world.patch_state({f"blocked_{intervention.get('tool_name', '')}": True})
         elif itype == "rate_limit":
             self.world.patch_state({"rate_limited_agents": intervention.get("agents", [])})
         elif itype == "escalate":
