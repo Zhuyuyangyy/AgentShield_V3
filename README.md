@@ -247,11 +247,65 @@ Default outputs:
 Current snapshot:
 
 | Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
-|---|---:|---:|---:|---:|---:|
+|---|---|---:|---:|---:|---:|---:|
 | Tool-name rules | 33.33% | 17.09% | 0.00% | 91.67% | 0.00% |
 | Content keywords | 33.33% | 19.61% | 0.00% | 50.00% | 0.00% |
 | Local context | 66.67% | 63.37% | 16.67% | 0.00% | 0.00% |
 | AgentShield chain-aware | 76.67% | 75.11% | 75.00% | 0.00% | 0.00% |
+
+### 5. Run Ablation Study
+
+```bash
+python scripts/run_ablation.py --dataset sci
+python scripts/run_ablation.py --dataset semireal
+```
+
+Outputs (published to `benchmark/results/`):
+
+- `ablation_sci_report.json` / `ablation_sci_table.csv` / `ablation_sci_deltas.csv`
+- `ablation_semireal_report.json` / `ablation_semireal_table.csv` / `ablation_semireal_deltas.csv`
+
+The ablation disables each chain-aware component in turn:
+
+| Ablation | Component disabled |
+|---|---|
+| 1 −stage boost | Attack-stage risk elevation (recon/collect/stage/exfiltrate) |
+| 2 −category×chain boost | Behavior-chain and governance-bypass category boost |
+| 3 −external+sensitive boost | External transfer + sensitive-field combination boost |
+| 4 −audit/evasion boosts | Audit-disabling and log-tampering detection |
+| 5 −special-case rules | Review-marker caps and exception rules |
+| 6 Local context (all chain) | Equivalent to the Local context baseline |
+
+Current SCI-600 results:
+
+| Method | Action Acc. | Macro F1 | BLOCK Recall |
+|---|---:|---:|---:|
+| 0 Full AgentShield | 75.33% | 72.61% | 84.79% |
+| 1 −stage boost | 75.83% | 73.35% | 84.79% |
+| 2 −category×chain boost | 75.83% | 73.35% | 84.79% |
+| 3 −external+sensitive boost | 75.33% | 72.61% | 84.79% |
+| 4 −audit/evasion boosts | 75.17% | 72.60% | 79.26% |
+| 5 −special-case rules | 51.33% | 47.78% | 84.79% |
+| 6 Local context | 62.67% | 60.98% | 76.96% |
+
+### Semi-Real Trace Methodology
+
+The V3.1 semi-real traces (`benchmark/test_cases/test_cases_semireal_150.json`) are constructed from controlled scenario templates that model real multi-agent attack patterns:
+
+- **Data exfiltration chain**: sensitive query → staging → compress → external transfer
+- **Privilege escalation**: config read → admin role modification
+- **Audit log bypass**: callback request → disable audit logging
+- **Bulk destructive operations**: single bulk DELETE
+- **Multi-agent delegation risk**: task delegation → sensitive query → external delivery
+
+Each trace preserves:
+- Step-level tool calls with realistic `agent_id`, `tool_name`, and anonymized `tool_input`
+- Parent-child step links
+- Per-step `local_risk_score` and `local_risk_type`
+- Trace-level `chain_label` (ALLOW / HUMAN_REVIEW / BLOCK) as ground truth
+- Critical intervention step and attack stage annotation (collect/stage/exfiltrate)
+
+This design produces traces that are more structurally realistic than fully synthetic cases while retaining deterministic, reproducible ground truth for benchmarking.
 
 ## Research Direction
 

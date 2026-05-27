@@ -77,3 +77,44 @@ def test_semireal_json_is_serializable(tmp_path):
     loaded = json.loads(output.read_text(encoding="utf-8"))
 
     assert loaded == traces
+
+
+def test_semireal_ablation_writes_required_configs(tmp_path):
+    from benchmark.ablation_semireal import run
+    from benchmark.evaluate_semireal import run as run_semireal
+    from benchmark.generate_semireal_traces import generate_traces
+
+    dataset = tmp_path / "semireal.json"
+    json_out = tmp_path / "ablation.json"
+    md_out = tmp_path / "ablation.md"
+    generate_traces(output=dataset, size=150, seed=20260526)
+
+    report = run(dataset=dataset, json_out=json_out, md_out=md_out)
+    baseline = run_semireal(
+        dataset=dataset,
+        json_out=tmp_path / "baseline.json",
+        md_out=tmp_path / "baseline.md",
+    )
+
+    assert json_out.exists()
+    assert md_out.exists()
+    names = [item["name"] for item in report["ablations"]]
+    assert names == [
+        "Full AgentShield",
+        "w/o chain propagation",
+        "w/o parent_step relation",
+        "local-only AgentShield",
+        "w/o future branch / what-if",
+    ]
+
+    table = md_out.read_text(encoding="utf-8")
+    assert "Semi-Real Trace Ablation Study" in table
+    assert "| Configuration | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |" in table
+
+    by_name = {item["name"]: item for item in report["ablations"]}
+    baseline_by_name = {item["name"]: item for item in baseline["baselines"]}
+    assert by_name["Full AgentShield"]["action_accuracy"] == baseline_by_name["AgentShield chain-aware"]["action_accuracy"]
+    assert by_name["Full AgentShield"]["macro_f1"] == baseline_by_name["AgentShield chain-aware"]["macro_f1"]
+    assert by_name["Full AgentShield"]["block_recall"] == baseline_by_name["AgentShield chain-aware"]["block_recall"]
+    assert by_name["Full AgentShield"]["block_recall"] > by_name["local-only AgentShield"]["block_recall"]
+    assert by_name["Full AgentShield"]["macro_f1"] >= by_name["w/o chain propagation"]["macro_f1"]
