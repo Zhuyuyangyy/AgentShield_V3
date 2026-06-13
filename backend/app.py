@@ -4,12 +4,15 @@ AgentShield V3 - FastAPI 主入口 (端口8090)
 POST /api/evaluate  - 工具调用风险评估（限流50次/分钟）
 GET  /health        - 健康检查
 """
+import logging
 import os
 import sys
 import uuid
 import time
 import random
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -96,7 +99,7 @@ def _save_engine_to_db(session_id: str, engine: Any):
             audit_data=audit_data,
         )
     except Exception:
-        pass  # SQLite 保存失败不影响主流程
+        logger.warning("SQLite session save failed for %s", session_id, exc_info=True)
 
 
 def get_engine(session_id: str) -> Any:
@@ -117,7 +120,7 @@ def get_engine(session_id: str) -> Any:
                 _engine_store[session_id] = engine
                 return engine
         except Exception:
-            pass  # 恢复失败，创建新引擎
+            logger.debug("Session restore failed for %s, creating new engine", session_id, exc_info=True)
         # 创建新引擎
         try:
             from app.shield.v3_engine import V3ShieldEngine
@@ -138,9 +141,9 @@ def get_engine(session_id: str) -> Any:
                     return {
                         "node_id": str(uuid.uuid4()),
                         "session_id": session_id,
-                        "decision": "allow",
-                        "risk_level": "low",
-                        "risk_score": 0.1,
+                        "decision": "block",
+                        "risk_level": "high",
+                        "risk_score": 0.9,
                         "reasoning": "DummyEngine fallback (v3_engine not found)",
                     }
                 def get_governance_status(self):
@@ -192,12 +195,12 @@ async def evaluate(request: Request, body: EvaluateRequest):
             labels=body.labels or [],
         )
     except Exception as e:
-        # 引擎异常时降级放行
+        # 引擎异常时降级拦截（fail-closed）
         result = {
             "node_id": str(uuid.uuid4()),
-            "decision": "allow",
-            "risk_level": "medium",
-            "risk_score": 0.5,
+            "decision": "block",
+            "risk_level": "high",
+            "risk_score": 0.9,
             "reasoning": f"Engine exception fallback: {str(e)}",
         }
 
@@ -205,9 +208,9 @@ async def evaluate(request: Request, body: EvaluateRequest):
     _save_engine_to_db(session_id, engine)
     return EvaluateResponse(
         session_id=session_id,
-        decision=result.get("decision", "allow"),
-        risk_level=result.get("risk_level", "low"),
-        risk_score=result.get("risk_score", 0.0),
+        decision=result.get("decision", "block"),
+        risk_level=result.get("risk_level", "high"),
+        risk_score=result.get("risk_score", 0.9),
         reasoning=result.get("reasoning", ""),
     )
 

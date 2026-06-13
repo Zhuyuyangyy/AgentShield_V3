@@ -1,121 +1,142 @@
 # AgentShield V3
 
-AgentShield V3 is a behavior-chain risk governance prototype for multi-agent tool-use systems. It records agent tool calls as graph nodes, propagates risk through behavior chains, applies governance decisions, and produces audit evidence plus counterfactual what-if analysis.
+> Behavior-chain risk governance for multi-agent tool-use systems.
 
-The project is currently positioned as both an engineering prototype and a research artifact for SCI-oriented experiments on multi-agent safety governance.
+![Python](https://img.shields.io/badge/Python-3.9+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-10%20passed-brightgreen)
 
-## Why V3
+## Overview
 
-Traditional guardrails usually judge a single prompt, response, or tool call in isolation. AgentShield V3 focuses on the behavior chain:
+AgentShield V3 is a research prototype for **behavior-chain risk governance** in multi-agent tool-use systems. Traditional guardrails evaluate individual prompts, responses, or tool calls in isolation. V3 addresses the fundamental limitation that **risk in multi-agent systems often emerges across sequences of actions**, not within any single call.
 
-```text
-V1: What did the AI say?
-V2: What tool did the agent call?
-V3: Why does this multi-agent behavior chain become risky?
+The system models agent tool calls as nodes in a directed behavior graph, propagates risk scores through behavior chains, applies three-level governance decisions (ALLOW / HUMAN_REVIEW / BLOCK), and provides counterfactual what-if analysis to estimate risk reduction from earlier interventions. This approach enables detection of attack patterns such as staged data exfiltration, privilege escalation through delegated tools, audit-log bypass, and bulk destructive operations with delayed impact.
+
+AgentShield V3 is positioned as both an engineering prototype and a research artifact for SCI-oriented experiments on multi-agent safety governance. The repository includes a reproducible benchmark workflow with synthetic and semi-realistic datasets, baseline comparisons, and ablation studies.
+
+## Key Features
+
+1. **Behavior Graph Modeling** -- Converts every tool call into an `AgentBehaviorGraph` node with agent identity, risk status, inherited risk, and downstream amplification tracking.
+
+2. **Chain-Aware Risk Propagation** -- Tracks local risk, inherited risk from upstream nodes, downstream amplification, and critical node identification across the full behavior chain.
+
+3. **Three-Level Governance Gate** -- Returns structured decisions (`ALLOW`, `HUMAN_REVIEW`, `BLOCK`) with risk scores, reasons, and confidence levels for each tool call.
+
+4. **Future Branch Projection** -- Generates possible next-step risk branches for high-risk calls, enabling proactive governance before damage occurs.
+
+5. **Counterfactual Intervention Analysis** -- Estimates risk reduction if a risky action had been blocked at an earlier point in the chain, supporting root-cause attribution.
+
+6. **Audit Chain Export** -- Produces structured evidence chains for review, debugging, and research analysis with full provenance tracking.
+
+7. **SCI Benchmark Workflow** -- Includes synthetic dataset generation (SCI-600), semi-realistic trace generation (150 traces, 405 steps), baseline comparison scripts, and ablation study tooling.
+
+## Architecture
+
+```
+                          +-------------------+
+                          |   API Gateway     |
+                          |   (FastAPI)       |
+                          +--------+----------+
+                                   |
+                          +--------v----------+
+                          |   V3 Engine       |
+                          |   (Governance)    |
+                          +--------+----------+
+                                   |
+              +--------------------+--------------------+
+              |                    |                     |
+   +----------v----------+ +------v-------+ +-----------v-----------+
+   | Behavior Graph      | | Audit Logger | | Session Store         |
+   | (Node/Edge Model)   | | (Evidence)   | | (State Management)    |
+   +----------+----------+ +--------------+ +-----------------------+
+              |
+   +----------v----------+
+   | Risk Propagation    |
+   | (Chain Analysis)    |
+   +----------+----------+
+              |
+   +----------v----------+
+   | Governance Gate     |
+   | (ALLOW/REVIEW/BLOCK)|
+   +----------+----------+
+              |
+   +----------v----------+
+   | Branch Tree &       |
+   | What-If Analysis    |
+   +---------------------+
 ```
 
-V3 is designed for scenarios where risk emerges across multiple steps, for example:
+## Tech Stack
 
-- querying sensitive fields and exporting them later,
-- staging data before external transfer,
-- privilege escalation through delegated tools,
-- audit-log bypass or callback smuggling,
-- bulk database operations with delayed impact.
-
-## Core Capabilities
-
-- **Behavior graph modeling**: converts every tool call into an `AgentBehaviorGraph` node.
-- **Risk propagation**: tracks local risk, inherited risk, downstream amplification, and critical nodes.
-- **Three-level governance**: returns `ALLOW`, `HUMAN_REVIEW`, or `BLOCK`.
-- **Future branch projection**: generates possible next-step branches for high-risk calls.
-- **Counterfactual intervention**: estimates risk reduction if a risky action is blocked earlier.
-- **Audit chain export**: keeps structured evidence for review, debugging, and research analysis.
-- **SCI benchmark workflow**: includes synthetic/semi-realistic dataset generation and baseline comparison scripts.
-
-## Repository Layout
-
-```text
-AgentShield_V3/
-+-- backend/
-|   +-- app/
-|   |   +-- api/
-|   |   |   +-- routes.py
-|   |   +-- shield/
-|   |   |   +-- agent_behavior_graph.py
-|   |   |   +-- v3_audit_logger.py
-|   |   |   +-- v3_engine.py
-|   |   +-- main.py
-|   +-- tests/
-|       +-- test_v3_engine.py
-+-- benchmark/
-|   +-- baselines.py
-|   +-- evaluate.py
-|   +-- generate_sci_dataset.py
-|   +-- results/
-|   |   +-- sci_baseline_report.json
-|   |   +-- sci_baseline_table.md
-|   +-- test_cases/
-|       +-- test_cases_v3_standard.json
-|       +-- test_cases_sci_600.json
-+-- docs/
-|   +-- paper_plan.md
-+-- pytest.ini
-+-- requirements.txt
-+-- README.md
-```
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Backend Framework | FastAPI + Uvicorn | REST API server with async support |
+| Core Engine | Python 3.9+ | Behavior graph, risk propagation, governance logic |
+| Data Validation | Pydantic v2 | Request/response schema validation |
+| Testing | pytest | Unit tests and integration tests |
+| Rate Limiting | slowapi | API rate limiting |
+| HTTP Client | httpx | Async HTTP communication |
+| Logging | loguru | Structured logging |
+| Containerization | Docker | Deployment packaging |
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
+
+- Python 3.9 or higher
+- pip package manager
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd AgentShield_V3
+
+# Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate        # Windows
+# source .venv/bin/activate   # Linux/macOS
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Run Tests
+### Running Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Current verified result:
+Expected output: `10 passed`
 
-```text
-10 passed
-```
-
-### 3. Start the API Server
+### Starting the API Server
 
 ```bash
 cd backend
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
 ```
 
-Then open:
+The following endpoints will be available:
 
-- API root: `http://localhost:8011/`
-- Swagger docs: `http://localhost:8011/docs`
-- Health check: `http://localhost:8011/health`
+| Endpoint | Description |
+|----------|-------------|
+| `http://localhost:8011/` | API root |
+| `http://localhost:8011/docs` | Swagger documentation |
+| `http://localhost:8011/health` | Health check |
 
-On Windows, you can also run:
+On Windows, you can also use `start.bat`.
 
-```bash
-start.bat
-```
+### API Usage Example
 
-## API Example
-
-### Process a Tool Call
+Process a tool call through the governance pipeline:
 
 ```http
 POST /api/v3/process_call
-```
+Content-Type: application/json
 
-Request:
-
-```json
 {
   "session_id": "demo-session",
   "agent_id": "data_agent",
@@ -128,7 +149,7 @@ Request:
 }
 ```
 
-Response fields include:
+Response:
 
 ```json
 {
@@ -145,199 +166,164 @@ Response fields include:
 }
 ```
 
-### Other Endpoints
+Additional endpoints:
 
-- `GET /api/v3/status/{session_id}`
-- `POST /api/v3/fork_branch`
-- `GET /api/v3/export_chain/{session_id}`
-- `GET /api/v3/behavior_graph/{session_id}`
-- `POST /api/v3/simulate_steps`
+- `GET /api/v3/status/{session_id}` -- Session status
+- `POST /api/v3/fork_branch` -- Fork a behavior branch
+- `GET /api/v3/export_chain/{session_id}` -- Export audit chain
+- `GET /api/v3/behavior_graph/{session_id}` -- Behavior graph visualization
+- `POST /api/v3/simulate_steps` -- Simulate future steps
 
-## Benchmark
+## Project Structure
 
-Run the standard regression benchmark:
-
-```bash
-python benchmark\evaluate.py
+```
+AgentShield_V3/
++-- backend/
+|   +-- app/
+|   |   +-- api/
+|   |   |   +-- routes.py                   # API endpoint definitions
+|   |   +-- shield/
+|   |   |   +-- agent_behavior_graph.py      # Behavior graph data model
+|   |   |   +-- session_store.py             # Session state management
+|   |   |   +-- v3_audit_logger.py           # Audit evidence logger
+|   |   |   +-- v3_engine.py                 # Core governance engine
+|   |   +-- main.py                          # FastAPI application entry
+|   +-- tests/
+|       +-- test_v3_engine.py                # Engine unit tests
+|       +-- test_semireal_benchmark.py       # Semi-real benchmark tests
++-- benchmark/
+|   +-- ablation_semireal.py                 # Ablation study for semi-real traces
+|   +-- baselines.py                         # Baseline comparison framework
+|   +-- evaluate.py                          # Standard evaluation runner
+|   +-- evaluate_semireal.py                 # Semi-real trace evaluation
+|   +-- generate_sci_dataset.py              # SCI-600 dataset generator
+|   +-- generate_semireal_traces.py          # Semi-real trace generator
+|   +-- results/                             # Benchmark result artifacts
+|   +-- test_cases/                          # Test case datasets
++-- docs/
+|   +-- CHANGELOG.md                         # Version history
+|   +-- PERFORMANCE_BENCHMARK.md             # Performance benchmarks
+|   +-- USER_GUIDE.md                        # User documentation
+|   +-- paper_plan.md                        # SCI paper roadmap
+|   +-- v3_1_evidence_summary.md             # V3.1 results summary
+|   +-- v3_2_ablation_report.md              # Ablation study report
++-- frontend/
+|   +-- index.html                           # Dashboard UI
++-- Dockerfile                               # Container configuration
++-- pytest.ini                               # Test configuration
++-- requirements.txt                         # Python dependencies
 ```
 
-Run the V3 standard benchmark:
+## Benchmarks & Results
 
-```bash
-python benchmark\evaluate_v3.py
-```
-
-The current restored engine has been verified with:
-
-```text
-Score accuracy: 100/100
-Action accuracy: 100/100
-```
-
-## SCI Experiment Workflow
-
-The repository now includes a reproducible SCI-oriented experiment path.
-
-### 1. Generate the SCI-600 Dataset
-
-```bash
-python benchmark\generate_sci_dataset.py
-```
-
-Default output:
-
-```text
-benchmark/test_cases/test_cases_sci_600.json
-```
-
-The generated dataset keeps the existing benchmark schema and adds optional chain metadata:
-
-- `chain_id`
-- `step_index`
-- `attack_stage`
-- `semi_realistic_trace`
-
-### 2. Run Baseline Comparison
-
-```bash
-python benchmark\baselines.py
-```
-
-Default outputs:
-
-- `benchmark/results/sci_baseline_report.json`
-- `benchmark/results/sci_baseline_table.md`
-
-Current snapshot on the deterministic SCI-600 dataset:
+### SCI-600 Dataset (600 synthetic cases)
 
 | Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
-|---|---:|---:|---:|---:|---:|
+|--------|------------|----------|-------------|-------------|-------------|
 | Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% |
 | Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% |
 | Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% |
-| AgentShield chain-aware | 75.33% | 72.61% | 84.79% | 0.00% | 6.40% |
+| **AgentShield chain-aware** | **75.33%** | **72.61%** | **84.79%** | **0.00%** | **6.40%** |
 
-These results are an internal research milestone. For SCI submission, the next step is to add ablation studies and semi-real traces from controlled LangChain, AutoGen, or internal agent workflows.
-
-### 3. Generate the V3.1 Semi-Real Trace Dataset
-
-```bash
-python benchmark\generate_semireal_traces.py
-```
-
-Default output:
-
-```text
-benchmark/test_cases/test_cases_semireal_150.json
-```
-
-The V3.1 dataset contains 150 controlled semi-real traces and 405 tool-call steps. It preserves trace-level labels, parent-child step links, critical intervention steps, and anonymized tool inputs.
-
-### 4. Run Semi-Real Trace Evaluation
-
-```bash
-python benchmark\evaluate_semireal.py
-```
-
-Default outputs:
-
-- `benchmark/results/semireal_baseline_report.json`
-- `benchmark/results/semireal_baseline_table.md`
-
-Current snapshot:
+### Semi-Real Trace Dataset (150 traces, 405 steps)
 
 | Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
-|---|---|---:|---:|---:|---:|---:|
+|--------|------------|----------|-------------|-------------|-------------|
 | Tool-name rules | 33.33% | 17.09% | 0.00% | 91.67% | 0.00% |
 | Content keywords | 33.33% | 19.61% | 0.00% | 50.00% | 0.00% |
 | Local context | 66.67% | 63.37% | 16.67% | 0.00% | 0.00% |
-| AgentShield chain-aware | 76.67% | 75.11% | 75.00% | 0.00% | 0.00% |
+| **AgentShield chain-aware** | **76.67%** | **75.11%** | **75.00%** | **0.00%** | **0.00%** |
 
-### 5. Run Ablation Study
+### Ablation Study (SCI-600)
+
+| Method | Action Acc. | Macro F1 | BLOCK Recall |
+|--------|------------|----------|-------------|
+| Full AgentShield | 75.33% | 72.61% | 84.79% |
+| - stage boost | 75.83% | 73.35% | 84.79% |
+| - category x chain boost | 75.83% | 73.35% | 84.79% |
+| - external+sensitive boost | 75.33% | 72.61% | 84.79% |
+| - audit/evasion boosts | 75.17% | 72.60% | 79.26% |
+| - special-case rules | 51.33% | 47.78% | 84.79% |
+| Local context (all chain) | 62.67% | 60.98% | 76.96% |
+
+### Running Benchmarks
 
 ```bash
+# Standard regression benchmark
+python benchmark/evaluate.py
+
+# V3 standard benchmark
+python benchmark/evaluate_v3.py
+
+# Generate and evaluate SCI-600 dataset
+python benchmark/generate_sci_dataset.py
+python benchmark/baselines.py
+
+# Generate and evaluate semi-real traces
+python benchmark/generate_semireal_traces.py
+python benchmark/evaluate_semireal.py
+
+# Run ablation studies
 python scripts/run_ablation.py --dataset sci
 python scripts/run_ablation.py --dataset semireal
 ```
 
-Outputs (published to `benchmark/results/`):
+## Semi-Real Trace Methodology
 
-- `ablation_sci_report.json` / `ablation_sci_table.csv` / `ablation_sci_deltas.csv`
-- `ablation_semireal_report.json` / `ablation_semireal_table.csv` / `ablation_semireal_deltas.csv`
+The V3.1 semi-real traces are constructed from controlled scenario templates modeling real multi-agent attack patterns:
 
-The ablation disables each chain-aware component in turn:
-
-| Ablation | Component disabled |
-|---|---|
-| 1 −stage boost | Attack-stage risk elevation (recon/collect/stage/exfiltrate) |
-| 2 −category×chain boost | Behavior-chain and governance-bypass category boost |
-| 3 −external+sensitive boost | External transfer + sensitive-field combination boost |
-| 4 −audit/evasion boosts | Audit-disabling and log-tampering detection |
-| 5 −special-case rules | Review-marker caps and exception rules |
-| 6 Local context (all chain) | Equivalent to the Local context baseline |
-
-Current SCI-600 results:
-
-| Method | Action Acc. | Macro F1 | BLOCK Recall |
-|---|---:|---:|---:|
-| 0 Full AgentShield | 75.33% | 72.61% | 84.79% |
-| 1 −stage boost | 75.83% | 73.35% | 84.79% |
-| 2 −category×chain boost | 75.83% | 73.35% | 84.79% |
-| 3 −external+sensitive boost | 75.33% | 72.61% | 84.79% |
-| 4 −audit/evasion boosts | 75.17% | 72.60% | 79.26% |
-| 5 −special-case rules | 51.33% | 47.78% | 84.79% |
-| 6 Local context | 62.67% | 60.98% | 76.96% |
-
-### Semi-Real Trace Methodology
-
-The V3.1 semi-real traces (`benchmark/test_cases/test_cases_semireal_150.json`) are constructed from controlled scenario templates that model real multi-agent attack patterns:
-
-- **Data exfiltration chain**: sensitive query → staging → compress → external transfer
-- **Privilege escalation**: config read → admin role modification
-- **Audit log bypass**: callback request → disable audit logging
+- **Data exfiltration chain**: sensitive query -> staging -> compress -> external transfer
+- **Privilege escalation**: config read -> admin role modification
+- **Audit log bypass**: callback request -> disable audit logging
 - **Bulk destructive operations**: single bulk DELETE
-- **Multi-agent delegation risk**: task delegation → sensitive query → external delivery
+- **Multi-agent delegation risk**: task delegation -> sensitive query -> external delivery
 
-Each trace preserves:
-- Step-level tool calls with realistic `agent_id`, `tool_name`, and anonymized `tool_input`
-- Parent-child step links
-- Per-step `local_risk_score` and `local_risk_type`
-- Trace-level `chain_label` (ALLOW / HUMAN_REVIEW / BLOCK) as ground truth
-- Critical intervention step and attack stage annotation (collect/stage/exfiltrate)
+Each trace preserves step-level tool calls with realistic agent/tool metadata, parent-child step links, per-step risk scores, trace-level ground truth labels, and attack stage annotations.
 
-This design produces traces that are more structurally realistic than fully synthetic cases while retaining deterministic, reproducible ground truth for benchmarking.
+## Research & Publications
 
-## Research Direction
+- **Paper Plan**: Documented in `docs/paper_plan.md`
+- **Recommended SCI Framing**:
+  - Problem: Single-call guardrails miss behavior-chain risk
+  - Method: Behavior graph + chain-aware governance
+  - Evidence: Standard benchmark, SCI-600 dataset, baseline comparison, ablation, latency, case studies
+  - Next data need: Anonymized or semi-real multi-agent tool-call traces
 
-The current paper route is documented in:
+## Roadmap
 
-```text
-docs/paper_plan.md
-```
+| Phase | Status | Description |
+|-------|--------|-------------|
+| V3.0 Core Engine | Completed | Behavior graph, risk propagation, governance gate |
+| V3.1 Semi-Real Traces | Completed | 150 controlled traces with attack stage annotations |
+| V3.2 Ablation Evidence | Completed | Component-level ablation study |
+| V3.3 Latency Optimization | In Progress | Engine latency reduction and throughput improvement |
+| V3.4 Real-World Traces | Planned | Anonymized traces from production agent workflows |
+| V3.5 Case Study Visualization | Planned | Interactive visualization of behavior chains and risk propagation |
 
-Recommended SCI framing:
+## Documentation
 
-- problem: single-call guardrails miss behavior-chain risk,
-- method: behavior graph plus chain-aware governance,
-- evidence: standard benchmark, SCI-600 dataset, baseline comparison, ablation, latency, case studies,
-- next data need: anonymized or semi-real multi-agent tool-call traces.
+| Document | Description |
+|----------|-------------|
+| [User Guide](docs/USER_GUIDE.md) | Complete user manual with quick start, concepts, SDK, API reference |
+| [Performance Benchmark](docs/PERFORMANCE_BENCHMARK.md) | Latency, throughput, memory, accuracy benchmarks |
+| [CHANGELOG](CHANGELOG.md) | Version history from V3.0 through V3.2 |
+| [V3.1 Evidence Summary](docs/v3_1_evidence_summary.md) | Semi-real benchmark results summary |
+| [V3.2 Ablation Report](docs/v3_2_ablation_report.md) | Ablation study methodology and findings |
+| [Paper Plan](docs/paper_plan.md) | SCI paper roadmap |
+| [Label Policy](benchmark/label_policy.md) | Benchmark labeling criteria |
 
-## Development Notes
+## License
 
-- Keep patent drafts, application documents, private datasets, backups, and local experiment dumps out of git.
-- Prefer committing source, tests, benchmark scripts, sanitized datasets, and reproducible reports only.
-- Do not commit `__pycache__`, `.pytest_cache`, raw credentials, or private logs.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-Suggested verification before committing:
+## Contributing
 
-```bash
-python -m pytest -q
-python benchmark\generate_sci_dataset.py
-python benchmark\baselines.py
-python benchmark\generate_semireal_traces.py
-python benchmark\evaluate_semireal.py
-```
+Contributions are welcome. Please ensure:
 
-## Status
+1. All tests pass (`python -m pytest -q`)
+2. Benchmark scripts run successfully
+3. No credentials, private datasets, or cache files are committed
 
-The V3 core engine, tests, benchmark runner, SCI dataset generator, baseline report workflow, and V3.1 semi-real trace benchmark are currently operational. The project is ready for the next research phase: ablation experiments, latency analysis, and case-study visualization.
+## Contact
+
+For questions, collaboration, or research inquiries, please open an issue on the repository.

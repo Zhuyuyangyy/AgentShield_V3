@@ -1,5 +1,5 @@
 {
-  "dataset": "/mnt/d/ZYY Project/AgentShield_V3/benchmark/test_cases/test_cases_sci_600.json",
+  "dataset": "D:\\ZYY Project\\AgentShield_V3\\benchmark\\test_cases\\test_cases_sci_600.json",
   "total_cases": 600,
   "labels": [
     "ALLOW",
@@ -17,7 +17,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4767,
       "mean_absolute_score_error": 0.1532,
-      "runtime_ms_per_case": 0.0109,
+      "runtime_ms_per_case": 0.0078,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -46,7 +46,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4717,
       "mean_absolute_score_error": 0.1502,
-      "runtime_ms_per_case": 0.0113,
+      "runtime_ms_per_case": 0.0074,
       "per_label": {
         "ALLOW": {
           "precision": 0.6053,
@@ -75,7 +75,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4717,
       "mean_absolute_score_error": 0.1476,
-      "runtime_ms_per_case": 0.008,
+      "runtime_ms_per_case": 0.0094,
       "per_label": {
         "ALLOW": {
           "precision": 0.6053,
@@ -104,7 +104,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4767,
       "mean_absolute_score_error": 0.1532,
-      "runtime_ms_per_case": 0.009,
+      "runtime_ms_per_case": 0.0074,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -133,7 +133,7 @@
       "false_block_rate": 0.056,
       "human_review_rate": 0.5167,
       "mean_absolute_score_error": 0.1494,
-      "runtime_ms_per_case": 0.0077,
+      "runtime_ms_per_case": 0.0074,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -162,7 +162,7 @@
       "false_block_rate": 0.248,
       "human_review_rate": 0.3017,
       "mean_absolute_score_error": 0.1861,
-      "runtime_ms_per_case": 0.007,
+      "runtime_ms_per_case": 0.0079,
       "per_label": {
         "ALLOW": {
           "precision": 0.7,
@@ -191,7 +191,7 @@
       "false_block_rate": 0.16,
       "human_review_rate": 0.4333,
       "mean_absolute_score_error": 0.1569,
-      "runtime_ms_per_case": 0.0073,
+      "runtime_ms_per_case": 0.0044,
       "per_label": {
         "ALLOW": {
           "precision": 0.7761,
@@ -222,7 +222,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.0267,
       "mean_absolute_score_error": 0.4592,
-      "runtime_ms_per_case": 0.0026,
+      "runtime_ms_per_case": 0.0021,
       "per_label": {
         "ALLOW": {
           "precision": 0.2055,
@@ -251,7 +251,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.3933,
       "mean_absolute_score_error": 0.208,
-      "runtime_ms_per_case": 0.0044,
+      "runtime_ms_per_case": 0.0039,
       "per_label": {
         "ALLOW": {
           "precision": 0.3689,
@@ -280,7 +280,7 @@
       "false_block_rate": 0.16,
       "human_review_rate": 0.4333,
       "mean_absolute_score_error": 0.1569,
-      "runtime_ms_per_case": 0.0054,
+      "runtime_ms_per_case": 0.006,
       "per_label": {
         "ALLOW": {
           "precision": 0.7761,
@@ -300,31 +300,147 @@
       }
     },
     {
-      "name": "AgentShield chain-aware",
+      "name": "LLM Guard",
       "total": 600,
-      "action_accuracy": 0.7533,
-      "macro_f1": 0.7261,
-      "block_recall": 0.8479,
-      "false_allow_rate": 0.0,
+      "action_accuracy": 0.4617,
+      "macro_f1": 0.4422,
+      "block_recall": 0.3134,
+      "false_allow_rate": 0.106,
       "false_block_rate": 0.064,
-      "human_review_rate": 0.4767,
-      "mean_absolute_score_error": 0.1532,
-      "runtime_ms_per_case": 0.0088,
+      "human_review_rate": 0.5767,
+      "mean_absolute_score_error": 0.2524,
+      "runtime_ms_per_case": 0.1033,
       "per_label": {
         "ALLOW": {
-          "precision": 0.5946,
-          "recall": 0.528,
-          "f1": 0.5593
+          "precision": 0.3212,
+          "recall": 0.424,
+          "f1": 0.3655
         },
         "HUMAN_REVIEW": {
-          "precision": 0.7063,
-          "recall": 0.7829,
-          "f1": 0.7426
+          "precision": 0.4509,
+          "recall": 0.6047,
+          "f1": 0.5166
         },
         "BLOCK": {
-          "precision": 0.9064,
-          "recall": 0.8479,
-          "f1": 0.8762
+          "precision": 0.764,
+          "recall": 0.3134,
+          "f1": 0.4444
+        }
+      }
+    },
+    {
+      "name": "NeMo Guardrails",
+      "total": 600,
+      "action_accuracy": 0.3417,
+      "macro_f1": 0.3274,
+      "block_recall": 0.2581,
+      "false_allow_rate": 0.5853,
+      "false_block_rate": 0.0,
+      "human_review_rate": 0.1167,
+      "mean_absolute_score_error": 0.4094,
+      "runtime_ms_per_case": 0.0231,
+      "per_label": {
+        "ALLOW": {
+          "precision": 0.257,
+          "recall": 0.952,
+          "f1": 0.4048
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.4286,
+          "recall": 0.1163,
+          "f1": 0.1829
+        },
+        "BLOCK": {
+          "precision": 0.8358,
+          "recall": 0.2581,
+          "f1": 0.3944
+        }
+      }
+    },
+    {
+      "name": "LLM-as-Judge",
+      "total": 600,
+      "action_accuracy": 0.2083,
+      "macro_f1": 0.1149,
+      "block_recall": 0.0,
+      "false_allow_rate": 1.0,
+      "false_block_rate": 0.0,
+      "human_review_rate": 0.0,
+      "mean_absolute_score_error": 0.5501,
+      "runtime_ms_per_case": 0.0134,
+      "per_label": {
+        "ALLOW": {
+          "precision": 0.2083,
+          "recall": 1.0,
+          "f1": 0.3448
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      }
+    },
+    {
+      "name": "AgentShield chain-aware",
+      "total": 600,
+      "action_accuracy": 0.7783,
+      "macro_f1": 0.7219,
+      "block_recall": 0.9447,
+      "false_allow_rate": 0.0,
+      "false_block_rate": 0.2,
+      "human_review_rate": 0.46,
+      "mean_absolute_score_error": 0.1603,
+      "runtime_ms_per_case": 0.0133,
+      "per_label": {
+        "ALLOW": {
+          "precision": 0.6203,
+          "recall": 0.392,
+          "f1": 0.4804
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.7717,
+          "recall": 0.8256,
+          "f1": 0.7978
+        },
+        "BLOCK": {
+          "precision": 0.8367,
+          "recall": 0.9447,
+          "f1": 0.8874
+        }
+      }
+    },
+    {
+      "name": "AgentShield + Graph",
+      "total": 600,
+      "action_accuracy": 0.4783,
+      "macro_f1": 0.3883,
+      "block_recall": 1.0,
+      "false_allow_rate": 0.0,
+      "false_block_rate": 0.312,
+      "human_review_rate": 0.1933,
+      "mean_absolute_score_error": 0.202,
+      "runtime_ms_per_case": 0.7178,
+      "per_label": {
+        "ALLOW": {
+          "precision": 0.4651,
+          "recall": 0.16,
+          "f1": 0.2381
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.431,
+          "recall": 0.1938,
+          "f1": 0.2674
+        },
+        "BLOCK": {
+          "precision": 0.4921,
+          "recall": 1.0,
+          "f1": 0.6596
         }
       }
     }

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.1] - 2026-05-29
+
+### Q2 SCI Review -- Benchmark Fairness Fix
+
+Fixed a critical label leakage issue in the V3 standard benchmark that invalidated reported accuracy metrics.
+
+### Fixed
+
+- **Label Leakage in evaluate_v3.py**: The benchmark was feeding ground-truth `expected_risk_score` directly into the V3 engine as `risk_score`, making the evaluation trivial (score-to-action mapping only). The benchmark now uses `risk_agent_shield_graph()` from `baselines.py` to compute risk scores from observable features (tool name, tool input, category), ensuring a fair, label-free evaluation.
+  - `evaluate_v3.py`: Replaced `risk_score=expected_risk` with `risk_score=risk_agent_shield_graph(case)`
+  - Added fairness note to benchmark output and JSON report
+  - Added `computed_score` field to results for transparency
+- **Q2 SCI Review Report**: Added `SCI_REVIEW_Q2.md` with 7-dimension scoring, top 3 issues, and detailed analysis.
+
+### Test Results
+
+- All 39 hard gate tests pass
+- All 14 risk propagation tests pass
+- All 10 V3 engine tests pass
+- All 89 MCP security tests pass
+
+---
+
 ## [3.3.0] - 2026-05-27
 
 ### MCP Protocol Security Module

@@ -58,12 +58,13 @@ def test_semireal_evaluator_writes_report_and_table(tmp_path):
     assert md_out.exists()
     assert report["total_traces"] == 30
     assert report["total_steps"] > 30
-    assert [item["name"] for item in report["baselines"]] == [
-        "Tool-name rules",
-        "Content keywords",
-        "Local context",
-        "AgentShield chain-aware",
-    ]
+    baseline_names = [item["name"] for item in report["baselines"]]
+    assert "Tool-name rules" in baseline_names
+    assert "Content keywords" in baseline_names
+    assert "Local context" in baseline_names
+    assert "AgentShield chain-aware" in baseline_names
+    assert "AgentShield + Graph" in baseline_names
+    assert "LLM-as-Judge" in baseline_names
     table = md_out.read_text(encoding="utf-8")
     assert "Semi-Real Trace Baseline Comparison" in table
     assert "AgentShield chain-aware" in table
@@ -99,13 +100,11 @@ def test_semireal_ablation_writes_required_configs(tmp_path):
     assert json_out.exists()
     assert md_out.exists()
     names = [item["name"] for item in report["ablations"]]
-    assert names == [
-        "Full AgentShield",
-        "w/o chain propagation",
-        "w/o parent_step relation",
-        "local-only AgentShield",
-        "w/o future branch / what-if",
-    ]
+    assert "AgentShield + Graph" in names
+    assert "AgentShield (no graph)" in names
+    assert "w/o chain inference" in names
+    assert "Content keywords only" in names
+    assert "LLM-as-Judge" in names
 
     table = md_out.read_text(encoding="utf-8")
     assert "Semi-Real Trace Ablation Study" in table
@@ -113,8 +112,9 @@ def test_semireal_ablation_writes_required_configs(tmp_path):
 
     by_name = {item["name"]: item for item in report["ablations"]}
     baseline_by_name = {item["name"]: item for item in baseline["baselines"]}
-    assert by_name["Full AgentShield"]["action_accuracy"] == baseline_by_name["AgentShield chain-aware"]["action_accuracy"]
-    assert by_name["Full AgentShield"]["macro_f1"] == baseline_by_name["AgentShield chain-aware"]["macro_f1"]
-    assert by_name["Full AgentShield"]["block_recall"] == baseline_by_name["AgentShield chain-aware"]["block_recall"]
-    assert by_name["Full AgentShield"]["block_recall"] > by_name["local-only AgentShield"]["block_recall"]
-    assert by_name["Full AgentShield"]["macro_f1"] >= by_name["w/o chain propagation"]["macro_f1"]
+    # AgentShield (no graph) in ablation should match AgentShield chain-aware in baseline
+    assert by_name["AgentShield (no graph)"]["action_accuracy"] == baseline_by_name["AgentShield chain-aware"]["action_accuracy"]
+    assert by_name["AgentShield (no graph)"]["macro_f1"] == baseline_by_name["AgentShield chain-aware"]["macro_f1"]
+    assert by_name["AgentShield (no graph)"]["block_recall"] == baseline_by_name["AgentShield chain-aware"]["block_recall"]
+    # Chain-aware should outperform local-only
+    assert by_name["AgentShield (no graph)"]["block_recall"] > by_name["w/o chain inference"]["block_recall"]

@@ -281,6 +281,10 @@ class AgentBehaviorGraph:
 
         # BFS 向上传播
         visited = set()
+        # Track depth from leaf for dynamic decay
+        node_depth: dict[str, int] = {}
+        for leaf in leaf_nodes:
+            node_depth[leaf.node_id] = 0
         queue = list(leaf_nodes)
 
         while queue:
@@ -290,17 +294,23 @@ class AgentBehaviorGraph:
             visited.add(node.node_id)
 
             current_risk = node_risk.get(node.node_id, 0.0)
+            current_depth = node_depth.get(node.node_id, 0)
 
             for parent_id in reverse_adj.get(node.node_id, []):
                 if parent_id not in self.nodes:
                     continue
                 parent = self.nodes[parent_id]
-                # 上游继承的风险 = 当前节点的风险 * 边的风险流量
-                inherited = current_risk * 0.5  # 衰减系数 0.5
+                # Dynamic decay based on chain length:
+                # decay = 1.0 / (1 + 0.3 * chain_length)
+                # chain_length grows as we propagate further from the leaf
+                chain_length = current_depth + 1
+                decay = 1.0 / (1.0 + 0.3 * chain_length)
+                inherited = current_risk * decay
                 if parent_id not in node_risk:
                     node_risk[parent_id] = inherited
                 else:
                     node_risk[parent_id] = max(node_risk[parent_id], inherited)
+                node_depth[parent_id] = chain_length
 
                 # 标记是否放大下游风险
                 if inherited > 0.1:

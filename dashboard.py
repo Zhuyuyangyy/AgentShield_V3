@@ -9,11 +9,14 @@ Usage:
     python dashboard.py
 """
 
+import logging
 import streamlit as st
 import requests
 import json
 import time
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
@@ -56,8 +59,8 @@ def check_api_health():
         resp = requests.get(f"{API_BASE}/health", timeout=2)
         if resp.status_code == 200:
             return resp.json()
-    except:
-        pass
+    except Exception:
+        logger.debug("API health check failed for %s", API_BASE, exc_info=True)
     return None
 
 

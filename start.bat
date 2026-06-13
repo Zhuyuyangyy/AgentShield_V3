@@ -1,4 +1,10 @@
 @echo off
 cd /d "%~dp0backend"
-echo Starting AgentShield V3 Backend on port 8011...
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
+echo ==============================================
+echo   AgentShield V3 - AI安全代理防护框架
+echo ==============================================
+echo.
+echo [启动] 服务运行于 http://localhost:8090
+echo [启动] API文档: http://localhost:8090/docs
+echo.
+python app.py

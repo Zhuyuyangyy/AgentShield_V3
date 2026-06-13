@@ -1,9 +1,8 @@
-"""Run V3.2 ablation experiments on Semi-Real-150 traces.
+"""Run V3.3 ablation experiments on Semi-Real-150 traces.
 
-The ablation keeps the V3.1 evaluation path intact: every configuration is
-evaluated through the same case-level risk functions used by
-benchmark/evaluate_semireal.py. Ablations remove input features before calling
-the predictor instead of reading trace labels or scenario templates.
+V3.3 ablation design: all configurations use only observable features
+(no ground-truth labels like attack_stage, chain_id, step_index).
+Ablations remove specific capabilities to measure their contribution.
 """
 
 from __future__ import annotations
@@ -19,7 +18,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from benchmark.baselines import evaluate, risk_agent_shield, risk_local_context
+from benchmark.baselines import (
+    evaluate,
+    risk_agent_shield,
+    risk_agent_shield_graph,
+    risk_content_keyword,
+    risk_llm_as_judge,
+    risk_local_context,
+)
+from benchmark.nemo_guardrails_baseline import risk_nemo_guardrails
+from benchmark.llm_guard_baseline import risk_llm_guard
 from benchmark.evaluate_semireal import load_traces, trace_to_case
 
 
@@ -28,67 +36,44 @@ DEFAULT_DATASET = ROOT / "test_cases" / "test_cases_semireal_150.json"
 DEFAULT_JSON = ROOT / "results" / "semireal_ablation_report.json"
 DEFAULT_MD = ROOT / "results" / "semireal_ablation_table.md"
 
-CaseTransform = Callable[[Dict[str, Any]], Dict[str, Any]]
 CasePredictor = Callable[[Dict[str, Any]], float]
-
-
-def identity(case: Dict[str, Any]) -> Dict[str, Any]:
-    return deepcopy(case)
-
-
-def without_chain_propagation_features(case: Dict[str, Any]) -> Dict[str, Any]:
-    ablated = deepcopy(case)
-    ablated["attack_stage"] = "single_call"
-    ablated["chain_id"] = ""
-    ablated["step_index"] = 0
-    return ablated
-
-
-def without_parent_step_features(case: Dict[str, Any]) -> Dict[str, Any]:
-    ablated = deepcopy(case)
-    ablated["chain_id"] = ""
-    ablated["step_index"] = 0
-    return ablated
-
-
-def without_future_whatif_features(case: Dict[str, Any]) -> Dict[str, Any]:
-    # V3.1's semi-real baseline does not pass future branch or what-if features
-    # into risk_agent_shield. This ablation is therefore an identity control.
-    return deepcopy(case)
-
-
-def predict_agent_shield(transform: CaseTransform) -> CasePredictor:
-    def _predict(case: Dict[str, Any]) -> float:
-        return risk_agent_shield(transform(case))
-
-    return _predict
 
 
 ABLATIONS: List[Tuple[str, CasePredictor, str]] = [
     (
-        "Full AgentShield",
-        predict_agent_shield(identity),
-        "Same risk_agent_shield(case) path used by evaluate_semireal.py.",
+        "AgentShield + Graph",
+        risk_agent_shield_graph,
+        "Full pipeline: label-free chain-aware scoring + graph risk propagation.",
     ),
     (
-        "w/o chain propagation",
-        predict_agent_shield(without_chain_propagation_features),
-        "Removes attack_stage, chain_id, and step_index features before inference.",
+        "AgentShield (no graph)",
+        risk_agent_shield,
+        "Label-free chain-aware scoring without graph risk propagation.",
     ),
     (
-        "w/o parent_step relation",
-        predict_agent_shield(without_parent_step_features),
-        "Removes chain_id and step_index features; current V3.1 predictor has no explicit parent_step input.",
+        "NeMo Guardrails",
+        risk_nemo_guardrails,
+        "NVIDIA NeMo Guardrails simulation: multi-rail architecture (topic/jailbreak/input/output/execution).",
     ),
     (
-        "local-only AgentShield",
+        "LLM Guard",
+        risk_llm_guard,
+        "ProtectAI LLM Guard simulation: scanner pipeline (secrets/injection/code/regex/topics/toxicity).",
+    ),
+    (
+        "LLM-as-Judge",
+        risk_llm_as_judge,
+        "Simulated LLM risk assessment using observable features.",
+    ),
+    (
+        "w/o chain inference",
         risk_local_context,
-        "Uses the existing local-context baseline without chain-aware features.",
+        "Removes chain inference: uses only category priors + keyword matching.",
     ),
     (
-        "w/o future branch / what-if",
-        predict_agent_shield(without_future_whatif_features),
-        "Identity control because V3.1 semi-real scoring does not consume future branch or what-if features.",
+        "Content keywords only",
+        risk_content_keyword,
+        "Uses only serialized tool input keywords, no category or chain context.",
     ),
 ]
 
@@ -125,11 +110,19 @@ def write_markdown(report: Dict[str, Any], path: Path) -> None:
             "",
             "## Interpretation",
             "",
-            "- `Full AgentShield` is intentionally identical to the V3.1 `evaluate_semireal.py` AgentShield chain-aware path.",
-            "- `w/o chain propagation` removes chain-stage and chain-position features before prediction.",
-            "- `w/o parent_step relation` removes the available chain identity and step-position proxy. V3.1 does not expose raw `parent_step` to the predictor.",
-            "- `local-only AgentShield` is the existing local-context baseline.",
-            "- `w/o future branch / what-if` is an identity control because those features are not consumed by the V3.1 semi-real predictor.",
+            "- `AgentShield + Graph` is the full pipeline: label-free chain-aware scoring + graph risk propagation.",
+            "- `AgentShield (no graph)` uses label-free chain-aware scoring without graph risk propagation.",
+            "- `NeMo Guardrails` simulates NVIDIA's multi-rail architecture (topic/jailbreak/input/output/execution rails).",
+            "- `LLM Guard` simulates ProtectAI's scanner pipeline (secrets/injection/code/regex/topics/toxicity/dataflow/toolsafety).",
+            "- `LLM-as-Judge` simulates a strong LLM's risk assessment from observable features.",
+            "- `w/o chain inference` removes chain inference entirely, using only category priors + keywords.",
+            "- `Content keywords only` uses only serialized tool input keywords.",
+            "",
+            "## Fairness Note",
+            "",
+            "All configurations use ONLY observable features (tool name, tool input, category).",
+            "No ground-truth labels (attack_stage, chain_id, step_index) are used.",
+            "Chain context is inferred from content patterns.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -152,7 +145,7 @@ def run(
         "dataset": str(dataset),
         "total_traces": len(traces),
         "total_steps": sum(len(trace.get("steps", [])) for trace in traces),
-        "note": "Full AgentShield reuses the V3.1 evaluate_semireal.py risk_agent_shield(case) path.",
+        "note": "V3.3 ablation: all configurations use only observable features (no ground-truth labels).",
         "ablations": results,
     }
     json_out.parent.mkdir(parents=True, exist_ok=True)

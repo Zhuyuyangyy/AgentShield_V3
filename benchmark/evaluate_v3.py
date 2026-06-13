@@ -1,9 +1,16 @@
-"""使用 V3 标准测试用例的 Benchmark Runner"""
+"""使用 V3 标准测试用例的 Benchmark Runner
+
+NOTE: This benchmark uses risk_agent_shield_graph() from baselines.py to compute
+risk scores from OBSERVABLE features only (tool name, tool input, category).
+It does NOT feed ground-truth expected_risk_score into the engine.
+"""
 import json, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
+sys.path.insert(0, str(Path(__file__).parent))
 from app.shield.v3_engine import V3ShieldEngine
+from baselines import risk_agent_shield_graph, action_for_score
 
 ENGINE_PATH = Path(__file__).parent.parent / "backend" / "app" / "shield" / "v3_engine.py"
 
@@ -13,22 +20,25 @@ def load_v3_cases():
         return json.load(f)
 
 def evaluate_case(engine, case):
-    expected_risk = case.get("expected_risk_score", 0.5)
-    expected_action = case.get("expected_action", "ALLOW")
+    """Evaluate a single case using observable-features-only risk scoring.
 
-    # V3 engine governance: pure score-based
-    if expected_risk >= 0.90:
-        fuse_action = "BLOCK"
-    elif expected_risk >= 0.60:
-        fuse_action = "HUMAN_REVIEW"
-    else:
-        fuse_action = "ALLOW"
+    The risk score is computed by risk_agent_shield_graph() from baselines.py,
+    which uses ONLY observable features (tool name, tool input, category).
+    Ground-truth fields (expected_risk_score, expected_action) are used ONLY
+    for computing evaluation metrics, NOT as engine input.
+    """
+    expected_action = case.get("expected_action", "ALLOW")
+    expected_risk = case.get("expected_risk_score", 0.5)
+
+    # Compute risk from observable features (no label leakage)
+    computed_risk = risk_agent_shield_graph(case)
+    fuse_action = action_for_score(computed_risk)
 
     result = engine.process_tool_call(
         agent_id=case.get("agent_id", "benchmark_agent"),
         tool_name=case["tool_name"],
         params=case.get("tool_input", {}),
-        risk_score=expected_risk,
+        risk_score=computed_risk,
         fuse_action=fuse_action,
     )
 
@@ -36,7 +46,8 @@ def evaluate_case(engine, case):
     actual_score = gate.get("score", 0.0)
     actual_action = gate.get("action", "ALLOW")
 
-    score_delta = abs(actual_score - expected_risk)
+    # Compare computed score against expected score
+    score_delta = abs(computed_risk - expected_risk)
     score_pass = score_delta < 0.15
     action_correct = (actual_action == expected_action)
 
@@ -45,6 +56,7 @@ def evaluate_case(engine, case):
         "description": case["description"],
         "category": case["category"],
         "expected_score": expected_risk,
+        "computed_score": round(computed_risk, 3),
         "actual_score": round(actual_score, 3),
         "score_delta": round(score_delta, 3),
         "score_pass": score_pass,
@@ -58,6 +70,8 @@ def run_benchmark():
     cases = load_v3_cases()
     print(f"\n{'='*60}")
     print(f"AgentShield V3 Benchmark (V3-Standard Cases) - {len(cases)} Test Cases")
+    print(f"FAIRNESS: Risk scores computed from OBSERVABLE features only.")
+    print(f"No ground-truth labels fed into the engine.")
     print(f"{'='*60}\n")
 
     engine = V3ShieldEngine(session_id="benchmark-v3-session")
@@ -126,6 +140,11 @@ def run_benchmark():
         "action_acc_pct": round(100*action_acc/total, 1),
         "results": results,
         "confusion_matrix": confusion,
+        "fairness_note": (
+            "Risk scores are computed by risk_agent_shield_graph() from observable "
+            "features (tool name, tool input, category). Ground-truth expected_risk_score "
+            "is NOT used as engine input. This is a label-free evaluation."
+        ),
     }
     out = Path(__file__).parent / "benchmark_v3_standard.json"
     with open(out, "w", encoding="utf-8") as f:
