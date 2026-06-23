@@ -61,16 +61,47 @@ FORBIDDEN_FIELDS: set = {"attack_stage", "chain_id", "step_index", "label", "rat
 
 
 def event_from_dict(data: dict) -> ObservedToolEvent:
-    """Create an ObservedToolEvent from a raw dict, stripping forbidden fields."""
+    """Create an ObservedToolEvent from a raw dict, stripping forbidden fields.
+
+    Also filters out any keys that are not valid ObservedToolEvent fields,
+    so datasets with extra columns (e.g. 'id', 'description') don't break.
+    """
+    import dataclasses as _dc
     forbidden = FORBIDDEN_FIELDS
-    safe = {k: v for k, v in data.items() if k not in forbidden}
+    valid_fields = {f.name for f in _dc.fields(ObservedToolEvent)}
+    # Map common dataset aliases to schema field names
+    alias_map = {
+        "id": "event_id",
+        "case_id": "event_id",
+        "tool": "tool_name",
+        "params": "tool_input",
+        "arguments": "tool_input",
+        "input": "tool_input",
+        "agent": "agent_id",
+    }
+    safe: Dict[str, Any] = {}
+    for k, v in data.items():
+        if k in forbidden:
+            continue
+        mapped = alias_map.get(k, k)
+        if mapped in valid_fields:
+            # Don't overwrite an explicitly-provided schema field with an alias
+            if mapped not in safe or k == mapped:
+                safe[mapped] = v
+    # Ensure required fields have values
+    safe.setdefault("event_id", data.get("id", data.get("case_id", "unknown")))
+    safe.setdefault("session_id", data.get("session_id", data.get("chain_id", "default")))
+    safe.setdefault("tool_name", data.get("tool_name", data.get("tool", "")))
+    safe.setdefault("tool_input", data.get("tool_input", data.get("params", data.get("input", {}))))
+    safe.setdefault("agent_id", data.get("agent_id", data.get("agent", "unknown")))
     return ObservedToolEvent(**safe)
 
 
 def ground_truth_from_dict(data: dict) -> HiddenGroundTruth:
     """Create a HiddenGroundTruth from a raw dict."""
+    event_id = data.get("event_id", data.get("id", data.get("case_id", "")))
     return HiddenGroundTruth(
-        event_id=data.get("event_id", ""),
+        event_id=event_id,
         attack_stage=data.get("attack_stage", "unknown"),
         chain_id=data.get("chain_id", ""),
         step_index=data.get("step_index", 0),

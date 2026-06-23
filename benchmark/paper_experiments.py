@@ -186,8 +186,21 @@ def run_leakage_test(
         normal_result = evaluate_baseline(baseline, events, ground_truths, "normal")
 
         # Evaluation with shuffled ground truth labels
-        shuffled_gt = list(ground_truths)
-        random.shuffle(shuffled_gt)
+        # Shuffle only the labels, keeping event_id pairing intact
+        from app.shield.schemas import HiddenGroundTruth
+        labels = [gt.label for gt in ground_truths]
+        random.shuffle(labels)
+        shuffled_gt = [
+            HiddenGroundTruth(
+                event_id=gt.event_id,
+                attack_stage=gt.attack_stage,
+                chain_id=gt.chain_id,
+                step_index=gt.step_index,
+                label=label,
+                rationale=gt.rationale,
+            )
+            for gt, label in zip(ground_truths, labels)
+        ]
         shuffled_result = evaluate_baseline(baseline, events, shuffled_gt, "shuffled")
 
         # If baseline is leaking, accuracy on normal should be much higher than shuffled

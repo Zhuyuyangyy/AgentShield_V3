@@ -19,6 +19,12 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
+# Ensure project root is on sys.path so `benchmark.*` imports resolve
+# when the script is run directly (e.g. `python benchmark/baselines.py`).
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from benchmark.nemo_guardrails_baseline import risk_nemo_guardrails
 from benchmark.llm_guard_baseline import risk_llm_guard
 

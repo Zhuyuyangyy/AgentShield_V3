@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as v3_router, _ttl_manager
 from app.console.routes import router as console_router
+from app.mcp.routes import router as mcp_router
 from app.security.tenant import extract_tenant_from_request, set_current_tenant
 
 
@@ -56,6 +57,9 @@ app.include_router(v3_router)
 
 # 注册 Enterprise Console 路由
 app.include_router(console_router)
+
+# 注册 MCP Shield Proxy 路由
+app.include_router(mcp_router)
 
 
 @app.on_event("startup")

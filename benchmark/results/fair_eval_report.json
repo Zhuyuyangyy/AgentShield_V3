@@ -1,0 +1,306 @@
+{
+  "dataset": "sci_600_fair",
+  "total_items": 600,
+  "baselines": [
+    {
+      "baseline_name": "tool_name_rules",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 373,
+      "accuracy": 0.6217,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.2072,
+      "macro_f1": 0.2556,
+      "false_allow": 0,
+      "false_block": 82,
+      "review_rate": 0.2417,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 0.6217,
+          "f1": 0.7667,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 373,
+          "HUMAN_REVIEW": 145,
+          "BLOCK": 82
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    },
+    {
+      "baseline_name": "content_keywords",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 264,
+      "accuracy": 0.44,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.1467,
+      "macro_f1": 0.2037,
+      "false_allow": 0,
+      "false_block": 158,
+      "review_rate": 0.2967,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 0.44,
+          "f1": 0.6111,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 264,
+          "HUMAN_REVIEW": 178,
+          "BLOCK": 158
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    },
+    {
+      "baseline_name": "local_context",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 405,
+      "accuracy": 0.675,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.225,
+      "macro_f1": 0.2687,
+      "false_allow": 0,
+      "false_block": 0,
+      "review_rate": 0.325,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 0.675,
+          "f1": 0.806,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 405,
+          "HUMAN_REVIEW": 195,
+          "BLOCK": 0
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    },
+    {
+      "baseline_name": "llm_as_judge",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 514,
+      "accuracy": 0.8567,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.2856,
+      "macro_f1": 0.3076,
+      "false_allow": 0,
+      "false_block": 0,
+      "review_rate": 0.1433,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 0.8567,
+          "f1": 0.9228,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 514,
+          "HUMAN_REVIEW": 86,
+          "BLOCK": 0
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    },
+    {
+      "baseline_name": "agentshield_no_graph",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 566,
+      "accuracy": 0.9433,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.3144,
+      "macro_f1": 0.3236,
+      "false_allow": 0,
+      "false_block": 0,
+      "review_rate": 0.0567,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 0.9433,
+          "f1": 0.9708,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 566,
+          "HUMAN_REVIEW": 34,
+          "BLOCK": 0
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    },
+    {
+      "baseline_name": "agentshield_graph_only",
+      "dataset_name": "sci_600_fair",
+      "total": 600,
+      "correct": 600,
+      "accuracy": 1.0,
+      "macro_precision": 0.3333,
+      "macro_recall": 0.3333,
+      "macro_f1": 0.3333,
+      "false_allow": 0,
+      "false_block": 0,
+      "review_rate": 0.0,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 600
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 600,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        }
+      }
+    }
+  ]
+}
