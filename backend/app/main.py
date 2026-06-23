@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as v3_router, _ttl_manager
+from app.console.routes import router as console_router
 from app.security.tenant import extract_tenant_from_request, set_current_tenant
 
 
@@ -52,6 +53,9 @@ async def tenant_context_middleware(request: Request, call_next):
 
 # 注册 V3 路由
 app.include_router(v3_router)
+
+# 注册 Enterprise Console 路由
+app.include_router(console_router)
 
 
 @app.on_event("startup")

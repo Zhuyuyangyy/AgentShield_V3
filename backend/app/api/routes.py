@@ -78,18 +78,17 @@ def get_or_create_engine(session_id: str, tenant_id: str = "default") -> Any:
     """获取或创建 V3 引擎实例（使用生产存储后端）"""
     scoped_key = tenant_scoped_key(session_id, tenant_id)
 
-    # Check TTL
-    ttl_meta = _ttl_manager.get_session(session_id)
-    if ttl_meta is None:
-        # Session expired or new
-        state = _storage.load_session(scoped_key)
-        if state and "engine" in state:
-            # Re-register with TTL
+    # Try to load existing engine from storage first
+    state = _storage.load_session(scoped_key)
+    if state and "engine" in state:
+        # Re-register with TTL if session had expired
+        ttl_meta = _ttl_manager.get_session(session_id)
+        if ttl_meta is None:
             _ttl_manager.register_session(
                 session_id, tenant_id=tenant_id, engine_id=state.get("engine_id", "")
             )
-            _ttl_manager.touch_session(session_id)
-            return state["engine"]
+        _ttl_manager.touch_session(session_id)
+        return state["engine"]
 
     # Create new engine
     from app.shield.v3_engine import V3ShieldEngine
@@ -104,7 +103,7 @@ def get_or_create_engine(session_id: str, tenant_id: str = "default") -> Any:
     # Save to storage
     engine_state = {
         "engine": engine,
-        "engine_id": engine.world_name,
+        "engine_id": engine.world.name,
         "session_id": session_id,
         "tenant_id": tenant_id,
     }
@@ -112,15 +111,14 @@ def get_or_create_engine(session_id: str, tenant_id: str = "default") -> Any:
 
     # Register with TTL
     _ttl_manager.register_session(
-        session_id, tenant_id=tenant_id, engine_id=engine.world_name
+        session_id, tenant_id=tenant_id, engine_id=engine.world.name
     )
 
     # Audit log
     _audit_log.append(
         event="session_created",
         session_id=session_id,
-        data={"engine_id": engine.world_name},
-        tenant_id=tenant_id,
+        data={"engine_id": engine.world.name, "tenant_id": tenant_id},
     )
 
     return engine
@@ -175,7 +173,7 @@ async def process_call(
     scoped_key = tenant_scoped_key(session_id, tenant_id)
     _storage.save_session(scoped_key, {
         "engine": engine,
-        "engine_id": engine.world_name,
+        "engine_id": engine.world.name,
         "session_id": session_id,
         "tenant_id": tenant_id,
     })
@@ -232,7 +230,7 @@ async def fork_branch(
     scoped_key = tenant_scoped_key(session_id, tenant_id)
     _storage.save_session(scoped_key, {
         "engine": engine,
-        "engine_id": engine.world_name,
+        "engine_id": engine.world.name,
         "session_id": session_id,
         "tenant_id": tenant_id,
     })
