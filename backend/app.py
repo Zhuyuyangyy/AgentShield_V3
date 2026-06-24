@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-AgentShield V3 - FastAPI 主入口 (端口8090)
+AgentShield V3 - FastAPI 主入口 (端口8011)
 POST /api/evaluate  - 工具调用风险评估（限流50次/分钟）
 GET  /health        - 健康检查
 """
@@ -170,7 +170,7 @@ async def health(request: Request):
         "version": "3.0.0",
         "engine": "AgentShield_V3",
         "framework": "ASF-BGT",
-        "port": 8090,
+        "port": 8011,
     }
 
 
@@ -349,7 +349,7 @@ async def health_detailed():
         "status": "ok",
         "version": "3.0.0",
         "framework": "ASF-BGT",
-        "port": 8090,
+        "port": 8011,
         "active_sessions": len(_engine_store),
         "db_file": os.environ.get("SHIELD_DB", "shield_sessions.db"),
     }
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=8090,
+        port=8011,
         reload=False,
         log_level="info",
     )

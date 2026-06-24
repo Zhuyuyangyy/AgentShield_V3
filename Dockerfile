@@ -13,12 +13,23 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
-# Expose the standalone API port (app.py)
-EXPOSE 8090
+# Create data directory for SQLite storage
+RUN mkdir -p /data
+
+# Environment variable defaults
+ENV AGENTSHIELD_STORAGE=sqlite \
+    AGENTSHIELD_DB_PATH=/data/agentshield.db \
+    AGENTSHIELD_SESSION_TTL=86400 \
+    AGENTSHIELD_AUTH_DISABLED=true \
+    AGENTSHIELD_CORS_ORIGINS=* \
+    AGENTSHIELD_DEFAULT_TENANT=default
+
+# Expose the API port
+EXPOSE 8011
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8011/health')" || exit 1
 
-# Run the standalone entry point
-CMD ["python", "backend/app.py"]
+# Production entry point using uvicorn
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8011", "--workers", "1"]

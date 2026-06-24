@@ -1,5 +1,5 @@
 {
-  "dataset": "D:\\ZYY Project\\AgentShield_V3\\benchmark\\test_cases\\test_cases_sci_600.json",
+  "dataset": "/workspace/benchmark/test_cases/test_cases_sci_600.json",
   "total_cases": 600,
   "labels": [
     "ALLOW",
@@ -17,7 +17,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4767,
       "mean_absolute_score_error": 0.1532,
-      "runtime_ms_per_case": 0.0078,
+      "runtime_ms_per_case": 0.0119,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -46,7 +46,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4717,
       "mean_absolute_score_error": 0.1502,
-      "runtime_ms_per_case": 0.0074,
+      "runtime_ms_per_case": 0.0111,
       "per_label": {
         "ALLOW": {
           "precision": 0.6053,
@@ -75,7 +75,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4717,
       "mean_absolute_score_error": 0.1476,
-      "runtime_ms_per_case": 0.0094,
+      "runtime_ms_per_case": 0.0109,
       "per_label": {
         "ALLOW": {
           "precision": 0.6053,
@@ -104,7 +104,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.4767,
       "mean_absolute_score_error": 0.1532,
-      "runtime_ms_per_case": 0.0074,
+      "runtime_ms_per_case": 0.011,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -133,7 +133,7 @@
       "false_block_rate": 0.056,
       "human_review_rate": 0.5167,
       "mean_absolute_score_error": 0.1494,
-      "runtime_ms_per_case": 0.0074,
+      "runtime_ms_per_case": 0.0108,
       "per_label": {
         "ALLOW": {
           "precision": 0.5946,
@@ -162,7 +162,7 @@
       "false_block_rate": 0.248,
       "human_review_rate": 0.3017,
       "mean_absolute_score_error": 0.1861,
-      "runtime_ms_per_case": 0.0079,
+      "runtime_ms_per_case": 0.0097,
       "per_label": {
         "ALLOW": {
           "precision": 0.7,
@@ -191,7 +191,7 @@
       "false_block_rate": 0.16,
       "human_review_rate": 0.4333,
       "mean_absolute_score_error": 0.1569,
-      "runtime_ms_per_case": 0.0044,
+      "runtime_ms_per_case": 0.0067,
       "per_label": {
         "ALLOW": {
           "precision": 0.7761,
@@ -222,7 +222,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.0267,
       "mean_absolute_score_error": 0.4592,
-      "runtime_ms_per_case": 0.0021,
+      "runtime_ms_per_case": 0.0027,
       "per_label": {
         "ALLOW": {
           "precision": 0.2055,
@@ -251,7 +251,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.3933,
       "mean_absolute_score_error": 0.208,
-      "runtime_ms_per_case": 0.0039,
+      "runtime_ms_per_case": 0.0059,
       "per_label": {
         "ALLOW": {
           "precision": 0.3689,
@@ -280,7 +280,7 @@
       "false_block_rate": 0.16,
       "human_review_rate": 0.4333,
       "mean_absolute_score_error": 0.1569,
-      "runtime_ms_per_case": 0.006,
+      "runtime_ms_per_case": 0.0068,
       "per_label": {
         "ALLOW": {
           "precision": 0.7761,
@@ -309,7 +309,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.5767,
       "mean_absolute_score_error": 0.2524,
-      "runtime_ms_per_case": 0.1033,
+      "runtime_ms_per_case": 0.1083,
       "per_label": {
         "ALLOW": {
           "precision": 0.3212,
@@ -338,7 +338,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.1167,
       "mean_absolute_score_error": 0.4094,
-      "runtime_ms_per_case": 0.0231,
+      "runtime_ms_per_case": 0.026,
       "per_label": {
         "ALLOW": {
           "precision": 0.257,
@@ -367,7 +367,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.0,
       "mean_absolute_score_error": 0.5501,
-      "runtime_ms_per_case": 0.0134,
+      "runtime_ms_per_case": 0.0144,
       "per_label": {
         "ALLOW": {
           "precision": 0.2083,
@@ -396,7 +396,7 @@
       "false_block_rate": 0.2,
       "human_review_rate": 0.46,
       "mean_absolute_score_error": 0.1603,
-      "runtime_ms_per_case": 0.0133,
+      "runtime_ms_per_case": 0.0197,
       "per_label": {
         "ALLOW": {
           "precision": 0.6203,
@@ -425,7 +425,7 @@
       "false_block_rate": 0.312,
       "human_review_rate": 0.1933,
       "mean_absolute_score_error": 0.202,
-      "runtime_ms_per_case": 0.7178,
+      "runtime_ms_per_case": 0.0876,
       "per_label": {
         "ALLOW": {
           "precision": 0.4651,
