@@ -16,11 +16,18 @@ import json
 import math
 import random
 import re
+import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT / "backend") not in sys.path:
+    sys.path.insert(0, str(_ROOT / "backend"))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from app.shield.schemas import ObservedToolEvent, HiddenGroundTruth, event_from_dict, ground_truth_from_dict
 from benchmark.strong_baselines import (

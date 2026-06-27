@@ -1,10 +1,10 @@
 {
-  "dataset": "sci_600_fair",
+  "dataset": "test_cases_sci_600",
   "total_items": 600,
   "baselines": [
     {
       "baseline_name": "tool_name_rules",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 373,
       "accuracy": 0.6217,
@@ -54,7 +54,7 @@
     },
     {
       "baseline_name": "content_keywords",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 264,
       "accuracy": 0.44,
@@ -104,7 +104,7 @@
     },
     {
       "baseline_name": "local_context",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 405,
       "accuracy": 0.675,
@@ -154,7 +154,7 @@
     },
     {
       "baseline_name": "llm_as_judge",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 514,
       "accuracy": 0.8567,
@@ -204,7 +204,7 @@
     },
     {
       "baseline_name": "agentshield_no_graph",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 566,
       "accuracy": 0.9433,
@@ -254,7 +254,7 @@
     },
     {
       "baseline_name": "agentshield_graph_only",
-      "dataset_name": "sci_600_fair",
+      "dataset_name": "test_cases_sci_600",
       "total": 600,
       "correct": 600,
       "accuracy": 1.0,
