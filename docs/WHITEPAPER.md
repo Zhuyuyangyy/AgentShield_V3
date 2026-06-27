@@ -399,7 +399,7 @@ I(i) = Sigma [R(j) * decay^(d(i,j))]  对所有上游节点j
 |------|------|---------|
 | Python SDK | 嵌入Agent框架 | 开发集成 |
 | RESTful API | 独立部署服务 | 生产环境 |
-| Web Dashboard | 可视化面板（端口8090） | 运维监控 |
+| Web Dashboard | 可视化面板（端口8011） | 运维监控 |
 | Docker Compose | 容器化一键部署 | 快速验证 |
 | Kubernetes | 高可用集群部署 | 大规模生产 |
 
@@ -418,7 +418,7 @@ I(i) = Sigma [R(j) * decay^(d(i,j))]  对所有上游节点j
 ```python
 from agentshield import AgentShield, RiskPolicy
 
-shield = AgentShield(api_url="http://localhost:8090", api_key="your-api-key")
+shield = AgentShield(api_url="http://localhost:8011", api_key="your-api-key")
 
 policy = RiskPolicy(
     max_risk_score=0.7,
@@ -518,7 +518,7 @@ AgentShield拥有完整的技术专利包，覆盖以下核心创新：
 
 - 项目负责人: ZYY
 - 技术文档: AgentShield_V3/docs/
-- 演示环境: http://localhost:8090
+- 演示环境: http://localhost:8011
 
 ---
 

@@ -23,7 +23,7 @@ pip install -r requirements.txt
 ### Running the Server
 
 ```bash
-# Standalone mode (port 8090)
+# Standalone mode (port 8011)
 cd backend && python app.py
 
 # Full mode (port 8011)

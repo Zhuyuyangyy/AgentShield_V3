@@ -1,6 +1,6 @@
 # AgentShield V3 API 文档
 
-> 多主体行为链风险治理系统 — ASF-BGT Framework（端口 8090）
+> 多主体行为链风险治理系统 — ASF-BGT Framework（端口 8011）
 
 **版本**: 3.0.0  
 **基础路径**: `/api/agent`  
@@ -324,7 +324,7 @@
   "version": "3.0.0",
   "engine": "AgentShield_V3",
   "framework": "ASF-BGT",
-  "port": 8090
+  "port": 8011
 }
 ```
 

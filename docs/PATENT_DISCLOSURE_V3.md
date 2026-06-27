@@ -663,7 +663,7 @@ API端点：
 
 **（3）Web Dashboard可视化部署**
 
-- 端口：8090
+- 端口：8011
 - Canvas 2D实时行为图可视化
 - 风险热力图
 - 审计日志查询
@@ -675,7 +675,7 @@ FROM python:3.10-slim
 WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
-EXPOSE 8000 8090
+EXPOSE 8000 8011
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 

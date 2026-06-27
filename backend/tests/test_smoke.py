@@ -68,7 +68,7 @@ class TestImports:
         assert GovernanceStatusResponse is not None
 
     def test_import_standalone_app(self):
-        """The standalone app.py entry point (port 8090) should be loadable."""
+        """The standalone app.py entry point (port 8011) should be loadable."""
         import importlib.util
         app_py = Path(__file__).resolve().parents[1] / "app.py"
         assert app_py.exists(), f"app.py not found at {app_py}"

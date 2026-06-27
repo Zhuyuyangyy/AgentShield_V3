@@ -126,7 +126,7 @@ from agentshield import AgentShield, RiskPolicy
 
 # 初始化
 shield = AgentShield(
-    api_url="http://localhost:8090",
+    api_url="http://localhost:8011",
     api_key="your-api-key"
 )
 

@@ -10,7 +10,7 @@
                     ┌──────────────┴──────────────────────┐
                     │         AgentShield API              │
                     │         (FastAPI + Uvicorn)          │
-                    │         Port: 8090                   │
+                    │         Port: 8011                   │
                     └──────────────┬──────────────────────┘
                                    │
               ┌────────────────────┼────────────────────┐
@@ -41,7 +41,7 @@ services:
   agentshield:
     build: .
     ports:
-      - "8090:8090"
+      - "8011:8011"
     environment:
       - DATABASE_URL=sqlite:///data/agentshield.db
       - REDIS_URL=redis://redis:6379
@@ -69,7 +69,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://agentshield:8090
+      - REACT_APP_API_URL=http://agentshield:8011
     depends_on:
       - agentshield
     restart: unless-stopped
@@ -100,7 +100,7 @@ export LOG_LEVEL=INFO
 python -c "from backend.app.database import init_db; init_db()"
 
 # 4. 启动
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8090
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8011
 ```
 
 ### 方式三：Kubernetes
@@ -125,7 +125,7 @@ spec:
       - name: agentshield
         image: agentshield:v3.1
         ports:
-        - containerPort: 8090
+        - containerPort: 8011
         env:
         - name: DATABASE_URL
           valueFrom:

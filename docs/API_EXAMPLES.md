@@ -5,7 +5,7 @@ AgentShield V3 exposes two API entry points:
 | Entry Point | Port | Prefix | Description |
 |---|---|---|---|
 | `backend/app/main.py` | 8011 | `/api/v3/` | Full V3 engine with behavior graph, branching, counterfactual analysis |
-| `backend/app.py` | 8090 | `/api/` | Standalone deployment with rate limiting, session persistence, agent registry |
+| `backend/app.py` | 8011 | `/api/` | Standalone deployment with rate limiting, session persistence, agent registry |
 
 Both share the same underlying V3 engine. Choose the one that fits your deployment.
 
@@ -13,7 +13,7 @@ Both share the same underlying V3 engine. Choose the one that fits your deployme
 
 ## Table of Contents
 
-- [Standalone API (port 8090)](#standalone-api-port-8090)
+- [Standalone API (port 8011)](#standalone-api-port-8011)
   - [Health Check](#health-check)
   - [Evaluate Tool Call](#evaluate-tool-call)
   - [Agent Registry](#agent-registry)
@@ -31,7 +31,7 @@ Both share the same underlying V3 engine. Choose the one that fits your deployme
 
 ---
 
-## Standalone API (port 8090)
+## Standalone API (port 8011)
 
 Start with:
 ```bash
@@ -45,10 +45,10 @@ python app.py
 
 ```bash
 # Basic health
-curl http://localhost:8090/health
+curl http://localhost:8011/health
 
 # Detailed health (includes session count)
-curl http://localhost:8090/api/health_detailed
+curl http://localhost:8011/api/health_detailed
 ```
 
 Response:
@@ -58,7 +58,7 @@ Response:
   "version": "3.0.0",
   "engine": "AgentShield_V3",
   "framework": "ASF-BGT",
-  "port": 8090
+  "port": 8011
 }
 ```
 
@@ -68,7 +68,7 @@ The primary endpoint. Submit a tool call for risk evaluation. Returns a governan
 
 ```bash
 # Low-risk: allow
-curl -X POST http://localhost:8090/api/evaluate \
+curl -X POST http://localhost:8011/api/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "data_agent",
@@ -79,7 +79,7 @@ curl -X POST http://localhost:8090/api/evaluate \
   }'
 
 # Medium-risk: review
-curl -X POST http://localhost:8090/api/evaluate \
+curl -X POST http://localhost:8011/api/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "query_agent",
@@ -90,7 +90,7 @@ curl -X POST http://localhost:8090/api/evaluate \
   }'
 
 # High-risk: block
-curl -X POST http://localhost:8090/api/evaluate \
+curl -X POST http://localhost:8011/api/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "exfil_agent",
@@ -122,7 +122,7 @@ Risk levels: `"low"`, `"medium"`, `"high"`, `"critical"`.
 List all registered agent types and their capabilities.
 
 ```bash
-curl http://localhost:8090/api/agent/registry
+curl http://localhost:8011/api/agent/registry
 ```
 
 Response:
@@ -141,7 +141,7 @@ Response:
 Track a multi-agent behavior chain. Each agent step is evaluated for risk.
 
 ```bash
-curl -X POST http://localhost:8090/api/agent/behavior_chain \
+curl -X POST http://localhost:8011/api/agent/behavior_chain \
   -H "Content-Type: application/json" \
   -d '{
     "agents": [
@@ -172,7 +172,7 @@ Response:
 Evaluate whether an agent's observed actions align with its stated goal (Theory of Mind).
 
 ```bash
-curl -X POST http://localhost:8090/api/agent/evaluate_intent \
+curl -X POST http://localhost:8011/api/agent/evaluate_intent \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "analyst_agent",
@@ -196,16 +196,16 @@ Response:
 
 ```bash
 # List recent sessions
-curl http://localhost:8090/api/sessions?limit=10
+curl http://localhost:8011/api/sessions?limit=10
 
 # Get specific session
-curl http://localhost:8090/api/session/my-session-001
+curl http://localhost:8011/api/session/my-session-001
 
 # Get behavior graph for a session
-curl http://localhost:8090/api/behavior_graph/my-session-001
+curl http://localhost:8011/api/behavior_graph/my-session-001
 
 # Delete a session
-curl -X DELETE http://localhost:8090/api/session/my-session-001
+curl -X DELETE http://localhost:8011/api/session/my-session-001
 ```
 
 ---
@@ -401,7 +401,7 @@ curl -X POST "http://localhost:8011/api/v3/simulate_steps?session_id=v3-session-
 ```python
 import httpx
 
-BASE_URL = "http://localhost:8090"  # Standalone API
+BASE_URL = "http://localhost:8011"  # Standalone API
 
 # Evaluate a tool call
 def evaluate_tool_call(
@@ -445,7 +445,7 @@ print(f"Risk score: {result['risk_score']}")  # 0.3
 ```python
 import httpx
 
-BASE_URL = "http://localhost:8090"
+BASE_URL = "http://localhost:8011"
 
 def evaluate_chain(agents: list[dict]) -> dict:
     """Evaluate a multi-agent behavior chain."""
@@ -570,7 +570,7 @@ import asyncio
 import httpx
 
 async def evaluate_async(agent_id: str, tool_name: str, params: dict, risk_score: float) -> dict:
-    async with httpx.AsyncClient(base_url="http://localhost:8090") as client:
+    async with httpx.AsyncClient(base_url="http://localhost:8011") as client:
         resp = await client.post(
             "/api/evaluate",
             json={

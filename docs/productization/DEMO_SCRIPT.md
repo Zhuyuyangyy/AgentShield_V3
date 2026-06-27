@@ -10,8 +10,8 @@
 
 ## 演示环境
 
-- **API服务**: http://localhost:8090
-- **Dashboard**: http://localhost:8090/dashboard
+- **API服务**: http://localhost:8011
+- **Dashboard**: http://localhost:8011/dashboard
 - **前置条件**: Docker Compose 已启动
 
 ## 演示流程（15分钟）
@@ -65,7 +65,7 @@
 **演示代码**：
 ```python
 # 模拟触发
-curl -X POST http://localhost:8090/api/v1/monitor \
+curl -X POST http://localhost:8011/api/v1/monitor \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "demo-agent",

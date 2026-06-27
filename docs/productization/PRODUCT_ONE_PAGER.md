@@ -29,7 +29,7 @@
 |------|------|
 | SDK | Python SDK，嵌入Agent框架 |
 | API服务 | RESTful API，独立部署 |
-| Dashboard | Web可视化面板（端口8090） |
+| Dashboard | Web可视化面板（端口8011） |
 | Benchmark套件 | 标准化评测工具 |
 
 ## 目标客户
@@ -75,4 +75,4 @@
 
 - 项目负责人: ZYY
 - 技术文档: AgentShield_V3/docs/
-- 演示环境: http://localhost:8090
+- 演示环境: http://localhost:8011

@@ -1,6 +1,6 @@
 # AgentShield_V3 评测优化报告
 > 评测时间：2026-05-27 | 评测人：Alice
-> 代码量：52个.py文件 | 后端端口：8090 | 前端：✅ | Benchmark：✅
+> 代码量：52个.py文件 | 后端端口：8011 | 前端：✅ | Benchmark：✅
 
 ---
 
@@ -19,9 +19,9 @@
 
 ## 二、端口配置
 
-- **正确**：`backend/app.py` 注释写明 `绔?8090`
+- **正确**：`backend/app.py` 注释写明 `绔?8011`
 - 路由：`backend/app/main.py` → `backend/app/api/routes.py`
-- 需要确认 .env 或启动参数是否有 port=8090
+- 需要确认 .env 或启动参数是否有 port=8011
 
 ---
 

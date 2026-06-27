@@ -45,7 +45,7 @@ def main_app():
 
 @pytest.fixture
 def standalone_app():
-    """The standalone FastAPI app (app.py, port 8090)."""
+    """The standalone FastAPI app (app.py, port 8011)."""
     import importlib.util
     app_py = Path(__file__).resolve().parents[1] / "app.py"
     spec = importlib.util.spec_from_file_location("app_standalone", str(app_py))
@@ -328,7 +328,7 @@ class TestV3RoutesMain:
         assert "behavior_graph" in body
 
 
-# ─── Standalone app routes (app.py, port 8090) ──────────────────────────────
+# ─── Standalone app routes (app.py, port 8011) ──────────────────────────────
 
 class TestStandaloneAppRoutes:
     """Tests for the standalone app.py endpoints."""
