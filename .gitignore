@@ -9,6 +9,11 @@ venv/
 .env
 .pytest_cache/
 *.db
+*.sqlite
 *.sqlite3
+/data/
+.uploads/
+benchmark/results/tmp/
+benchmark/results/local/
 .ruff_cache/
 .mypy_cache/
