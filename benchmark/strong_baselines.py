@@ -17,9 +17,16 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT / "backend") not in sys.path:
+    sys.path.insert(0, str(_ROOT / "backend"))
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from app.shield.schemas import ObservedToolEvent, FORBIDDEN_FIELDS
 
