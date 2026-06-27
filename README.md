@@ -6,7 +6,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
-![Tests](https://img.shields.io/badge/Tests-242%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-276%20passed-brightgreen)
 
 ## Overview
 
@@ -110,7 +110,7 @@ pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Expected output: `242 passed`
+Expected output: `276 passed`
 
 ### Starting the API Server
 

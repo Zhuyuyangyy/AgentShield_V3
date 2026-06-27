@@ -311,7 +311,7 @@
       "best_f1": 0.3333,
       "relative_improvement_over_local_context": 0.2404
     },
-    "timestamp": 1782553790.1792984
+    "timestamp": 1782556799.3997667
   },
   "ablation": {
     "experiment_name": "ablation_study",
@@ -526,7 +526,7 @@
       "total_items": 600,
       "configs_tested": 4
     },
-    "timestamp": 1782553790.202183
+    "timestamp": 1782556799.4221601
   },
   "leakage": {
     "experiment_name": "leakage_test",
@@ -580,7 +580,7 @@
       "baselines_with_suspected_leakage": 0,
       "all_clean": true
     },
-    "timestamp": 1782553790.258352
+    "timestamp": 1782556799.4744442
   },
   "robustness": {
     "experiment_name": "robustness_test",
@@ -891,7 +891,7 @@
       "total_adversarial_cases": 4,
       "best_robustness_f1": 0.2222
     },
-    "timestamp": 1782553790.25958
+    "timestamp": 1782556799.4755368
   },
   "latency": {
     "experiment_name": "latency_benchmark",
@@ -903,49 +903,49 @@
         "mean_ms": 0.0012,
         "p50_ms": 0.0011,
         "p95_ms": 0.0012,
-        "p99_ms": 0.0013,
+        "p99_ms": 0.0012,
         "min_ms": 0.0011,
-        "max_ms": 0.0558
+        "max_ms": 0.0044
       },
       {
         "baseline_name": "content_keywords",
         "iterations": 1000,
         "mean_ms": 0.0094,
         "p50_ms": 0.0092,
-        "p95_ms": 0.0094,
-        "p99_ms": 0.0183,
+        "p95_ms": 0.0096,
+        "p99_ms": 0.0136,
         "min_ms": 0.0089,
-        "max_ms": 0.0663
+        "max_ms": 0.0781
       },
       {
         "baseline_name": "local_context",
         "iterations": 1000,
         "mean_ms": 0.0032,
         "p50_ms": 0.0029,
-        "p95_ms": 0.0032,
-        "p99_ms": 0.0106,
-        "min_ms": 0.0027,
-        "max_ms": 0.073
+        "p95_ms": 0.003,
+        "p99_ms": 0.0034,
+        "min_ms": 0.0028,
+        "max_ms": 0.1382
       },
       {
         "baseline_name": "llm_as_judge",
         "iterations": 1000,
-        "mean_ms": 0.0102,
-        "p50_ms": 0.0095,
-        "p95_ms": 0.0099,
-        "p99_ms": 0.0289,
+        "mean_ms": 0.0097,
+        "p50_ms": 0.0096,
+        "p95_ms": 0.0098,
+        "p99_ms": 0.0121,
         "min_ms": 0.0092,
-        "max_ms": 0.2184
+        "max_ms": 0.0264
       },
       {
         "baseline_name": "agentshield_no_graph",
         "iterations": 1000,
-        "mean_ms": 0.0073,
-        "p50_ms": 0.0067,
+        "mean_ms": 0.0068,
+        "p50_ms": 0.0068,
         "p95_ms": 0.007,
-        "p99_ms": 0.0162,
-        "min_ms": 0.0064,
-        "max_ms": 0.2899
+        "p99_ms": 0.0072,
+        "min_ms": 0.0066,
+        "max_ms": 0.0198
       },
       {
         "baseline_name": "agentshield_graph_only",
@@ -953,16 +953,16 @@
         "mean_ms": 0.0009,
         "p50_ms": 0.0009,
         "p95_ms": 0.001,
-        "p99_ms": 0.0011,
+        "p99_ms": 0.001,
         "min_ms": 0.0009,
-        "max_ms": 0.0077
+        "max_ms": 0.0033
       }
     ],
     "summary": {
       "iterations": 1000,
       "sub_millisecond_baselines": 6
     },
-    "timestamp": 1782553790.2962184
+    "timestamp": 1782556799.5093133
   },
   "review_cost": {
     "experiment_name": "review_cost_analysis",
@@ -1302,7 +1302,7 @@
       },
       "lowest_cost_baseline": "agentshield_graph_only"
     },
-    "timestamp": 1782553790.3263178
+    "timestamp": 1782556799.5368078
   },
   "case_studies": {
     "experiment_name": "case_studies",
@@ -1730,6 +1730,6 @@
       }
     ],
     "summary": {},
-    "timestamp": 1782553790.3279135
+    "timestamp": 1782556799.5382845
   }
 }

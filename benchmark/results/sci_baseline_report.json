@@ -17,7 +17,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.0267,
       "mean_absolute_score_error": 0.4592,
-      "runtime_ms_per_case": 0.0052,
+      "runtime_ms_per_case": 0.0048,
       "per_label": {
         "ALLOW": {
           "precision": 0.2055,
@@ -225,7 +225,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.3933,
       "mean_absolute_score_error": 0.208,
-      "runtime_ms_per_case": 0.008,
+      "runtime_ms_per_case": 0.0074,
       "per_label": {
         "ALLOW": {
           "precision": 0.3689,
@@ -433,7 +433,7 @@
       "false_block_rate": 0.16,
       "human_review_rate": 0.4333,
       "mean_absolute_score_error": 0.1569,
-      "runtime_ms_per_case": 0.0074,
+      "runtime_ms_per_case": 0.01,
       "per_label": {
         "ALLOW": {
           "precision": 0.7761,
@@ -641,7 +641,7 @@
       "false_block_rate": 0.064,
       "human_review_rate": 0.5767,
       "mean_absolute_score_error": 0.2524,
-      "runtime_ms_per_case": 0.2432,
+      "runtime_ms_per_case": 0.1869,
       "per_label": {
         "ALLOW": {
           "precision": 0.3212,
@@ -849,7 +849,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.1167,
       "mean_absolute_score_error": 0.4094,
-      "runtime_ms_per_case": 0.0618,
+      "runtime_ms_per_case": 0.0537,
       "per_label": {
         "ALLOW": {
           "precision": 0.257,
@@ -1057,7 +1057,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.0,
       "mean_absolute_score_error": 0.5501,
-      "runtime_ms_per_case": 0.0209,
+      "runtime_ms_per_case": 0.0234,
       "per_label": {
         "ALLOW": {
           "precision": 0.2083,
@@ -1265,7 +1265,7 @@
       "false_block_rate": 0.2,
       "human_review_rate": 0.46,
       "mean_absolute_score_error": 0.1603,
-      "runtime_ms_per_case": 0.0224,
+      "runtime_ms_per_case": 0.0253,
       "per_label": {
         "ALLOW": {
           "precision": 0.6203,
@@ -1473,7 +1473,7 @@
       "false_block_rate": 0.312,
       "human_review_rate": 0.1933,
       "mean_absolute_score_error": 0.202,
-      "runtime_ms_per_case": 0.1236,
+      "runtime_ms_per_case": 0.1497,
       "per_label": {
         "ALLOW": {
           "precision": 0.4651,
