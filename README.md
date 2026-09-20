@@ -201,14 +201,20 @@ AgentShield_V3/
 |   +-- results/                             # Benchmark result artifacts
 |   +-- test_cases/                          # Test case datasets
 +-- docs/
-|   +-- CHANGELOG.md                         # Version history
-|   +-- PERFORMANCE_BENCHMARK.md             # Performance benchmarks
 |   +-- USER_GUIDE.md                        # User documentation
+|   +-- PERFORMANCE_BENCHMARK.md             # Performance benchmarks
 |   +-- paper_plan.md                        # SCI paper roadmap
 |   +-- v3_1_evidence_summary.md             # V3.1 results summary
 |   +-- v3_2_ablation_report.md              # Ablation study report
+|   +-- research/                            # Research process artifacts
+|   |   +-- SCI_REVIEW_*.md                  # SCI review rounds
+|   |   +-- debate_*.md                      # Advocate/critic debate logs
+|   |   +-- OPTIMIZATION_REPORT.md           # Historical optimization notes
+|   +-- papers/                              # Manuscript outlines & checklists
+|   +-- experiments/                         # Ad-hoc experiment scripts & output
 +-- frontend/
 |   +-- index.html                           # Dashboard UI
++-- CHANGELOG.md                             # Version history (repo root)
 +-- Dockerfile                               # Container configuration
 +-- pytest.ini                               # Test configuration
 +-- requirements.txt                         # Python dependencies

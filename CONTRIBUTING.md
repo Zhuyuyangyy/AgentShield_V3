@@ -84,11 +84,13 @@ backend/
     api/routes.py          # FastAPI routes
     shield/v3_engine.py    # Core governance engine
     shield/agent_behavior_graph.py  # Behavior graph model
+    shield/persistence.py  # Non-blocking SQLite persistence
+    shield/redaction.py    # Credential redaction
     shield/session_store.py         # SQLite persistence
     shield/v3_audit_logger.py       # Audit chain logger
   tests/                   # All tests (pytest)
 benchmark/                 # Benchmark scripts and datasets
-docs/                      # Documentation
+docs/                      # Documentation (research/, papers/, experiments/)
 frontend/                  # Static frontend
 ```
 
