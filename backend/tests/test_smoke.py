@@ -6,7 +6,6 @@ These tests verify the project is correctly installed and configured
 before running the full test suite.
 """
 
-import sys
 from pathlib import Path
 
 import pytest
@@ -188,10 +187,23 @@ class TestSanity:
         assert summary["total_edges"] == 0
 
     def test_conformal_predictor_importable(self):
-        """CP core module should be importable (optional dependency: numpy)."""
-        try:
-            from app.cp.core import ConformalPredictor, PredictionSet
-            assert ConformalPredictor is not None
-            assert PredictionSet is not None
-        except ImportError:
-            pytest.skip("numpy not installed; CP core unavailable")
+        """CP core module and its NCFs must be importable.
+
+        This previously wrapped the import in ``try/except ImportError ->
+        skip``, which hid a genuinely broken ``app.cp``.  The layer is a
+        declared dependency in requirements.txt, so failure here is a real
+        regression and must not be quietly skipped.
+        """
+        from app.cp import (
+            BehaviorGraphNCF,
+            ScoreBasedNCF,
+            AdaptiveNCF,
+            CROSS_ENTROPY_LABELS,
+        )
+        from app.cp.core import ConformalPredictor, PredictionSet
+
+        assert ConformalPredictor is not None
+        assert PredictionSet is not None
+        assert CROSS_ENTROPY_LABELS == ["ALLOW", "HUMAN_REVIEW", "BLOCK"]
+        for ncf_cls in (ScoreBasedNCF, BehaviorGraphNCF, AdaptiveNCF):
+            assert ncf_cls().name
