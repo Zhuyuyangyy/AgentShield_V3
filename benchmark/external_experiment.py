@@ -36,7 +36,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List
 
 # Quiet down the HF progress bars / llm-guard model download chatter
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
@@ -155,7 +155,7 @@ def _llm_guard():
     if _LLM_GUARD is not None:
         return _LLM_GUARD
     from llm_guard import scan_prompt
-    from llm_guard.input_scanners import PromptInjection, BanTopics, Toxicity, Secrets
+    from llm_guard.input_scanners import PromptInjection, BanTopics, Toxicity
     # We use 3 scanners that are CPU-friendly and that 'real' llm-guard
     # would run in production as the input stage
     scanners = [
@@ -208,7 +208,7 @@ def predict_agentshield_full(case: Dict[str, Any]) -> str:
     """
     from app.shield.v3_engine import V3ShieldEngine
     # Reuse the project's own label-free scorer (in benchmark/baselines.py)
-    from benchmark.baselines import risk_agent_shield_graph, action_for_score
+    from benchmark.baselines import risk_agent_shield_graph
 
     session_id = f"ext_{case.get('id', 'case')}"
     eng = V3ShieldEngine(session_id=session_id, risk_threshold=0.70)
@@ -420,12 +420,12 @@ def main():
     print("=" * 70)
     print("REAL DATA")
     print("=" * 70)
-    print(f"  AgentDojo dump (ffuuugor/agentdojo-dump, HF)")
+    print("  AgentDojo dump (ffuuugor/agentdojo-dump, HF)")
     print(f"    samples loaded:   {len(agentdojo)}")
     print(f"    label=1 (attack): {sum(1 for c in agentdojo if c['expected_label']==1)}")
     print(f"    label=0 (benign): {sum(1 for c in agentdojo if c['expected_label']==0)}")
     print()
-    print(f"  AgentHarm harmful (ai-safety-institute/AgentHarm, HF)")
+    print("  AgentHarm harmful (ai-safety-institute/AgentHarm, HF)")
     print(f"    samples loaded:   {len(agentharm)}")
     print(f"    all harmful:      {sum(1 for c in agentharm if c['expected_label']==1)}")
     print()
@@ -479,7 +479,7 @@ def main():
         # Key claim check
         full = summary.get("AgentShield V3 (full)", {})
         abl = summary.get("AgentShield V3 (no special-case rules)", {})
-        nemo_real = summary.get("llm-guard (real PyPI)", {})
+        summary.get("llm-guard (real PyPI)", {})
         if full and abl:
             full_r = full["mean_block_recall"]
             abl_r = abl["mean_block_recall"]

@@ -16,7 +16,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = ROOT.parent.parent

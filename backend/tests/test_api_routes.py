@@ -7,7 +7,6 @@ Covers all routes defined in backend/app/main.py and backend/app.py.
 
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -35,6 +34,7 @@ def standalone_app():
     spec = importlib.util.spec_from_file_location("app_standalone", str(app_py))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    sys.modules["app_standalone"] = mod
     return mod.app
 
 
@@ -555,3 +555,66 @@ class TestMultiStepScenarios:
             export_resp = await client.get(f"/api/v3/export_chain/{session_id}")
             chain = export_resp.json()
             assert len(chain["audit_chain"]) >= 3
+
+class TestAsyncSessionPersistence:
+    """Session persistence must be non-blocking AND lossless.
+
+    The save path debounces writes and runs sqlite3 on a thread pool so it
+    never blocks the event loop.  The invariant under test: no matter how
+    many requests arrive while a flush is in flight, the *final* persisted
+    snapshot must contain every processed call.
+    """
+
+    @pytest.mark.anyio
+    async def test_burst_of_calls_is_fully_persisted(self, standalone_app):
+        from app.shield.session_store import load_session
+
+        app_mod = sys.modules.get("app_standalone")
+        if app_mod is None:
+            for name, mod in list(sys.modules.items()):
+                if getattr(mod, "__file__", "").endswith("app.py") and hasattr(mod, "app"):
+                    app_mod = mod
+                    break
+        assert app_mod is not None
+
+        session_id = "persist_burst_1"
+        from app.shield import persistence
+
+        persistence.reset()
+
+        from httpx import AsyncClient, ASGITransport
+
+        n_calls = 25
+        async with AsyncClient(transport=ASGITransport(app=app_mod.app), base_url="http://t") as client:
+            for i in range(n_calls):
+                resp = await client.post(
+                    "/api/evaluate",
+                    json={
+                        "agent_id": "a",
+                        "tool_name": "cursor.execute",
+                        "params": {"q": str(i)},
+                        "risk_score": 0.75,
+                        "session_id": session_id,
+                    },
+                )
+                assert resp.status_code == 200
+
+        # Drain the debounced write queue.
+        from app.shield import persistence
+
+        await persistence.drain_async()
+        persistence.drain()
+
+        saved = load_session(session_id)
+        assert saved is not None
+        # Every processed call must be in the persisted audit chain.
+        assert len(saved["audit_data"]) >= n_calls
+        assert len(saved["graph_data"]["nodes"]) >= n_calls
+
+    @pytest.mark.anyio
+    async def test_save_queue_drains_after_burst(self, standalone_app):
+        from app.shield import persistence
+
+        await persistence.drain_async()
+        assert persistence.pending_count() == 0
+        assert persistence.inflight_count() == 0

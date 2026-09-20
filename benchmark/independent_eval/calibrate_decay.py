@@ -63,11 +63,8 @@ def compute_graph_score(
     This simulates the graph risk propagation with a tunable alpha.
     """
     from benchmark.independent_eval.baselines import (
-        assess_content_sensitivity,
         assess_data_flow_risk,
         assess_frequency_anomaly,
-        assess_privilege_risk,
-        assess_transfer_risk,
         estimate_chain_length,
         infer_category_from_content,
         CATEGORY_PRIORS,

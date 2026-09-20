@@ -159,7 +159,7 @@ class TestEvaluationMetrics:
 
     def test_evaluate_returns_required_keys(self):
         """evaluate() returns all required metric keys."""
-        from benchmark.baselines import evaluate, action_for_score
+        from benchmark.baselines import evaluate
 
         def mock_predictor(case):
             return 0.5

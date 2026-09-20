@@ -57,8 +57,8 @@ def evaluate_case(engine, case):
 
     # 额外特殊规则：某些工具/描述直接映射到更高级别
     desc = case.get("description", "")
-    tool = case.get("tool_name", "")
-    cat = case.get("category", "")
+    case.get("tool_name", "")
+    case.get("category", "")
 
     # 如果描述中出现"伪造""绕过""投毒""注入""隧道传输""盲注"等关键词，直接 Block
     high_risk_kw = ["伪造", "绕过", "投毒", "注入", "盲注", "隧道", "隐藏传输",

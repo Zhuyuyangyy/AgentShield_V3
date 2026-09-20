@@ -15,7 +15,7 @@ import sys
 import time
 
 logger = logging.getLogger(__name__)
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
@@ -199,7 +199,7 @@ def _infer_graph_risk(case: Dict[str, Any]) -> float:
         from app.shield.agent_behavior_graph import AgentBehaviorGraph
 
         graph = AgentBehaviorGraph(session_id="benchmark_inference")
-        category = case.get("category", "")
+        case.get("category", "")
         tool_name = case.get("tool_name", "")
         tool_input = case.get("tool_input", {})
         local_score = risk_local_context(case)

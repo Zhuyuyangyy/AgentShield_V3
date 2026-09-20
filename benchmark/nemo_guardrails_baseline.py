@@ -21,7 +21,7 @@ No ground-truth labels (attack_stage, chain_id, step_index) are read.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 
 # ============================================================================

@@ -184,7 +184,7 @@ def main() -> None:
     print(f"Test set: {test_data['metadata']['total_cases']} cases")
     print(f"  Safe: {test_data['metadata']['safe_cases']}")
     print(f"  Risky: {test_data['metadata']['risky_cases']}")
-    print(f"\nZero-shot patterns in test set:")
+    print("\nZero-shot patterns in test set:")
     for pattern in test_data["metadata"]["zero_shot_patterns"]:
         print(f"  - {pattern}")
 

@@ -10,11 +10,9 @@ to broken simulation logic.
 
 from __future__ import annotations
 
-import json
 import math
 import time
 from collections import Counter
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
 
 LABELS = ["ALLOW", "HUMAN_REVIEW", "BLOCK"]

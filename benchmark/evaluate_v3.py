@@ -70,8 +70,8 @@ def run_benchmark():
     cases = load_v3_cases()
     print(f"\n{'='*60}")
     print(f"AgentShield V3 Benchmark (V3-Standard Cases) - {len(cases)} Test Cases")
-    print(f"FAIRNESS: Risk scores computed from OBSERVABLE features only.")
-    print(f"No ground-truth labels fed into the engine.")
+    print("FAIRNESS: Risk scores computed from OBSERVABLE features only.")
+    print("No ground-truth labels fed into the engine.")
     print(f"{'='*60}\n")
 
     engine = V3ShieldEngine(session_id="benchmark-v3-session")

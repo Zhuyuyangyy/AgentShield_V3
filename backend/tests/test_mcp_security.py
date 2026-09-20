@@ -6,7 +6,6 @@ Covers: Tool Poisoning, Shadowing, Rug Pull, Amplification, Cascade,
 Description Injection, Structural Validation, Semantic Attacks, Safety Scanning.
 """
 
-import pytest
 from app.security.mcp_detector import (
     MCPAttackDetector,
     MCPAttackType,
@@ -229,11 +228,8 @@ class TestAmplificationDetection:
             tool_name="tool_a",
             chain_context=["tool_a"],
         )
-        # Single tool in chain should not trigger amplification warning
-        amp_indicators = [
-            i for i in report.indicators if i.attack_type == MCPAttackType.AMPLIFICATION
-        ]
-        # May or may not trigger depending on exact factor; just check report structure
+        # Single tool in chain should not trigger amplification warning.
+        # (the detector call above only needs to populate chain context)
         assert report.amplification_factor >= 0.0
 
     def test_amplification_long_chain(self):
@@ -378,10 +374,6 @@ class TestThreatReportSerialization:
         assert isinstance(d["indicators"], list)
 
     def test_report_recommend_action_allow(self):
-        report = MCPThreatReport(
-            tool_name="t", server_id="s", is_threat=False,
-            threat_score=0.1,
-        )
         assert MCPAttackDetector._recommend_action(0.1) == "allow"
 
     def test_report_recommend_action_review(self):
@@ -1064,7 +1056,9 @@ class TestMCPIntegration:
         chain = []
         for i, tool in enumerate(["list_files", "read_file", "compress", "send_email"]):
             chain.append(tool)
-            val = validator.validate(tool, f"Tool {i}: {tool}")
+            # validate() is invoked for its side effect on the detector's
+            # description history (rug-pull tracking).
+            validator.validate(tool, f"Tool {i}: {tool}")
             report = detector.analyze_tool_call(
                 tool_name=tool,
                 tool_description=f"Tool {i}: {tool}",

@@ -25,9 +25,9 @@ def generate_traces(output: Path = DEFAULT_OUTPUT, size: int = 150, seed: int = 
     if size % 15 != 0:
         raise ValueError("size must be divisible by 15 to preserve label balance")
 
-    scale = size // 150
+    size // 150
     if size != 150:
-        scale = max(1, size // 150)
+        max(1, size // 150)
 
     rng = random.Random(seed)
     traces: List[Dict[str, Any]] = []

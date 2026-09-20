@@ -4,7 +4,6 @@ AgentShield V3 Benchmark Evaluator
 """
 import json
 import sys
-import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
@@ -124,7 +123,7 @@ def run_benchmark():
         print(f"{r['id']:<8} {r.get('category',''):<25} {r.get('expected_score',0):>8.2f} {r.get('actual_score',0):>8.2f} {r.get('score_delta',0):>6.2f} {status:>5} {r.get('expected_action',''):<12} {r.get('actual_action',''):<12}")
 
     print(f"\n{'='*60}")
-    print(f"SUMMARY")
+    print("SUMMARY")
     print(f"{'='*60}")
     print(f"Total:     {total} cases")
     print(f"Errors:    {errors}")
@@ -132,7 +131,7 @@ def run_benchmark():
     print(f"Action Acc: {action_passes}/{total} ({100*action_passes/total:.1f}%)")
     print(f"V3 Specific: {len(v3_specific)} cases, {v3_passes}/{len(v3_specific)} ({100*v3_passes/len(v3_specific):.1f}% passes)")
 
-    print(f"\nBy Category:")
+    print("\nBy Category:")
     for cat, stats in sorted(categories.items()):
         print(f"  {cat:<25}: {stats['pass']}/{stats['total']} score, {stats['action_pass']}/{stats['total']} action")
 
