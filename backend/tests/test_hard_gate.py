@@ -12,6 +12,7 @@ Tests for the governance gate decision logic:
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -22,6 +23,22 @@ for path in [WORKSPACE]:
     while path in sys.path:
         sys.path.remove(path)
     sys.path.insert(0, path)
+
+
+def _make_risk_state(combined_risk_target: float):
+    """Create a GraphRiskState that produces approximately the target combined_risk.
+
+    With all components equal to x and confidence=1.0, combined_risk = x.
+    """
+    from app.shield.risk_signals import GraphRiskState
+    return GraphRiskState(
+        local_risk=combined_risk_target,
+        inherited_risk=combined_risk_target,
+        downstream_exposure=combined_risk_target,
+        path_risk=combined_risk_target,
+        intervention_value=combined_risk_target,
+        confidence=1.0,
+    )
 
 
 # ─── Pure Function: _action_for_score ────────────────────────────────────────
@@ -122,20 +139,32 @@ class TestHardGateDecisions:
     def test_review_decision_for_medium_risk(self):
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="gate_review_001")
-        result = engine.process_tool_call(
-            agent_id="review", tool_name="cursor.execute",
-            params={"sql": "SELECT *"}, risk_score=0.72, fuse_action="allow",
-        )
+        # Mock risk computation to produce medium computed risk so that
+        # the blended final_risk falls in the HUMAN_REVIEW range
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.8),
+        ):
+            result = engine.process_tool_call(
+                agent_id="review", tool_name="cursor.execute",
+                params={"sql": "SELECT *"}, risk_score=0.72, fuse_action="allow",
+            )
         assert result["decision"] == "review"
         assert result["gate_result"]["action"] == "HUMAN_REVIEW"
 
     def test_block_decision_for_critical_risk(self):
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="gate_block_001")
-        result = engine.process_tool_call(
-            agent_id="block", tool_name="send_email",
-            params={"to": "evil@x.com"}, risk_score=0.95, fuse_action="block",
-        )
+        # Mock risk computation to produce high computed risk so that
+        # the blended final_risk reaches the BLOCK threshold
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            result = engine.process_tool_call(
+                agent_id="block", tool_name="send_email",
+                params={"to": "evil@x.com"}, risk_score=0.95, fuse_action="block",
+            )
         assert result["decision"] == "block"
         assert result["gate_result"]["action"] == "BLOCK"
 
@@ -143,11 +172,18 @@ class TestHardGateDecisions:
         """Gate reasoning string includes the risk score and action matches."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="gate_reason_001")
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="t", params={}, risk_score=0.75, fuse_action="allow",
-        )
+        # Mock risk computation to produce a score in the HUMAN_REVIEW range
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.8),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="t", params={}, risk_score=0.75, fuse_action="allow",
+            )
         reason = result["gate_result"]["reason"]
-        assert "0.75" in reason
+        score = result["gate_result"]["score"]
+        # The reason should contain the blended final risk score
+        assert f"{score:.2f}" in reason
         # Action is HUMAN_REVIEW, reason describes the range
         assert result["gate_result"]["action"] == "HUMAN_REVIEW"
         assert "0.60" in reason and "0.90" in reason
@@ -179,9 +215,15 @@ class TestFutureBranchGeneration:
     def test_high_risk_generates_branches(self):
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="branch_high_001")
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="send_email", params={}, risk_score=0.85, fuse_action="allow",
-        )
+        # Mock risk computation to produce high computed risk so that
+        # final_risk >= risk_threshold and branches are generated
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.85),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="send_email", params={}, risk_score=0.85, fuse_action="allow",
+            )
         assert len(result["future_branches"]) > 0
         for branch in result["future_branches"]:
             assert "branch_id" in branch
@@ -192,9 +234,14 @@ class TestFutureBranchGeneration:
         """Branch governance actions follow the same _action_for_score rules."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="branch_action_001")
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="cursor.execute", params={}, risk_score=0.88, fuse_action="allow",
-        )
+        # Mock risk computation to produce high computed risk for branch generation
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.88),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="cursor.execute", params={}, risk_score=0.88, fuse_action="allow",
+            )
         for branch in result["future_branches"]:
             assert branch["governance_action"] in ("ALLOW", "HUMAN_REVIEW", "BLOCK")
 
@@ -202,9 +249,14 @@ class TestFutureBranchGeneration:
         """The engine respects max_branches configuration."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="branch_max_001", max_branches=2)
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="send_email", params={}, risk_score=0.90, fuse_action="block",
-        )
+        # Mock risk computation to produce high computed risk for branch generation
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="send_email", params={}, risk_score=0.90, fuse_action="block",
+            )
         assert len(result["future_branches"]) <= 2
 
     def test_branch_tree_grows_on_fork(self):
@@ -254,9 +306,14 @@ class TestCounterfactualWhatIf:
     def test_whatif_triggered_on_high_risk(self):
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="whatif_001", risk_threshold=0.70, enable_counterfactual=True)
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="send_email", params={}, risk_score=0.92, fuse_action="block",
-        )
+        # Mock risk computation to produce high computed risk so whatif is triggered
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="send_email", params={}, risk_score=0.92, fuse_action="block",
+            )
         assert result["whatif_result"] is not None
         assert "scenario_id" in result["whatif_result"]
 
@@ -280,30 +337,47 @@ class TestCounterfactualWhatIf:
         """What-if analysis shows risk reduction when blocking."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="whatif_004", enable_counterfactual=True)
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="http_request", params={}, risk_score=0.88, fuse_action="allow",
-        )
+        # Mock risk computation to produce high computed risk so whatif is triggered
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.85),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="http_request", params={}, risk_score=0.88, fuse_action="allow",
+            )
         whatif = result["whatif_result"]
         assert whatif is not None
         assert whatif["risk_delta"] < 0  # Risk is reduced
 
     def test_whatif_projected_risk_lower_than_baseline(self):
-        """Projected risk after blocking is lower than baseline."""
+        """Modified risk after blocking is lower than original risk."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="whatif_005", enable_counterfactual=True)
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="send_email", params={}, risk_score=0.90, fuse_action="block",
-        )
+        # Mock risk computation to produce high computed risk so whatif is triggered
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.9),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="send_email", params={}, risk_score=0.90, fuse_action="block",
+            )
         whatif = result["whatif_result"]
-        assert whatif["projected_outcome"]["projected_risk"] < whatif["projected_outcome"]["baseline_risk"]
+        # New CounterfactualEngine uses modified_risk / original_risk fields
+        assert whatif["modified_risk"] < whatif["original_risk"]
 
     def test_whatif_custom_threshold(self):
         """Custom risk_threshold controls when what-if is triggered."""
         from app.shield.v3_engine import V3ShieldEngine
         engine = V3ShieldEngine(session_id="whatif_006", risk_threshold=0.50, enable_counterfactual=True)
-        result = engine.process_tool_call(
-            agent_id="a", tool_name="cursor.execute", params={}, risk_score=0.55, fuse_action="allow",
-        )
+        # Mock risk computation to produce computed risk that, when blended
+        # with risk_score=0.55, exceeds the custom threshold of 0.50
+        with patch.object(
+            engine._risk_extractor, 'compute_graph_risk_state',
+            return_value=_make_risk_state(0.5),
+        ):
+            result = engine.process_tool_call(
+                agent_id="a", tool_name="cursor.execute", params={}, risk_score=0.55, fuse_action="allow",
+            )
         assert result["whatif_result"] is not None
 
 

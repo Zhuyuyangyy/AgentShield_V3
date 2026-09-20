@@ -14,7 +14,13 @@ from typing import Any, Dict, List, Optional
 
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
 from app.shield.redaction import summarize_params as _summarize_params_redacted
+from app.shield.risk_extractor import RiskSignalExtractor
+from app.shield.risk_signals import GraphRiskState
+from app.shield.counterfactual import CounterfactualEngine
 from app.shield.v3_audit_logger import V3AuditLogger
+
+
+# ── Data Classes ──────────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -62,6 +68,9 @@ class _BranchPoint:
     candidates: List[_Branch]
     step: int
     timestamp: float = field(default_factory=time.time)
+
+
+# ── Branch Tree ───────────────────────────────────────────────────────────────
 
 
 class _BranchTree:
@@ -121,6 +130,9 @@ class _BranchTree:
         return list(self.all_branches.values())
 
 
+# ── Score Helpers ─────────────────────────────────────────────────────────────
+
+
 def _action_for_score(score: float) -> str:
     if score >= 0.90:
         return "BLOCK"
@@ -137,6 +149,9 @@ def _risk_level_for_score(score: float) -> str:
     if score >= 0.40:
         return "medium"
     return "low"
+
+
+# ── V3 Shield Engine ─────────────────────────────────────────────────────────
 
 
 class V3ShieldEngine:
@@ -163,6 +178,9 @@ class V3ShieldEngine:
         self.audit_logger = V3AuditLogger()
         self.governance_gates: List[Any] = []
         self._gate_count = 0
+        self._risk_extractor = RiskSignalExtractor()
+        self._counterfactual_engine = CounterfactualEngine()
+        self._graph_risk_state: Optional[GraphRiskState] = None
 
         self.audit_logger.log(
             event="V3_ENGINE_INIT",
@@ -180,14 +198,58 @@ class V3ShieldEngine:
         agent_id: str,
         tool_name: str,
         params: Dict[str, Any],
-        risk_score: float,
-        fuse_action: str,
+        risk_score: float = 0.0,
+        fuse_action: str = "allow",
         parent_node_id: Optional[str] = None,
         labels: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        risk_score = max(0.0, min(float(risk_score), 1.0))
+        # Build observed event for signal extraction
+        from app.shield.schemas import ObservedToolEvent
+
+        observed_event = ObservedToolEvent(
+            event_id=f"evt_{uuid.uuid4().hex[:8]}",
+            session_id=self.session_id,
+            tool_name=tool_name,
+            tool_input=params,
+            agent_id=agent_id,
+            previous_tools=[
+                n.tool_name for n in self.behavior_graph.get_session_nodes()[-5:]
+            ],
+            chain_length=len(self.behavior_graph.get_session_nodes()),
+        )
+
+        # Compute graph-derived risk state
+        graph_inherited = 0.0
+        graph_downstream = 0.0
+        graph_path = 0.0
+        if parent_node_id and parent_node_id in self.behavior_graph.nodes:
+            parent = self.behavior_graph.get_node(parent_node_id)
+            if parent:
+                graph_inherited = parent.inherited_risk
+                downstream_nodes = self.behavior_graph.get_downstream_nodes(parent_node_id)
+                graph_downstream = max(
+                    (n.shadow_risk_score for n in downstream_nodes), default=0.0
+                )
+
+        self._graph_risk_state = self._risk_extractor.compute_graph_risk_state(
+            event=observed_event,
+            graph_inherited_risk=graph_inherited,
+            graph_downstream_exposure=graph_downstream,
+            graph_path_risk=graph_path,
+        )
+
+        # Use computed risk, with backward-compatible fallback
+        computed_risk = self._graph_risk_state.combined_risk
+        if risk_score > 0:
+            # Backward compatibility: blend external score with computed score
+            final_risk = 0.6 * computed_risk + 0.4 * risk_score
+        else:
+            final_risk = computed_risk
+
+        final_risk = max(0.0, min(float(final_risk), 1.0))
+
         call_id = f"call_{uuid.uuid4().hex[:8]}"
-        action = _action_for_score(risk_score)
+        action = _action_for_score(final_risk)
         node_action = self._node_action(action)
 
         node = self.behavior_graph.add_tool_call_as_node(
@@ -195,32 +257,35 @@ class V3ShieldEngine:
             tool_name=tool_name,
             params_summary=self._summarize_params(tool_name, params),
             fuse_action=node_action,
-            shadow_risk_score=risk_score,
+            shadow_risk_score=final_risk,
             parent_node_id=parent_node_id,
-            inherited_risk=0.0,
+            inherited_risk=self._graph_risk_state.inherited_risk,
             labels=labels or [],
         )
         self.behavior_graph.compute_risk_propagation()
 
-        branches = self._generate_future_branches(agent_id, tool_name, risk_score)
+        branches = self._generate_future_branches(agent_id, tool_name, final_risk)
         gate_result = {
             "action": action,
-            "reason": self._gate_reason(risk_score, action),
-            "score": risk_score,
-            "risk_level": _risk_level_for_score(risk_score),
+            "reason": self._gate_reason(final_risk, action),
+            "score": final_risk,
+            "risk_level": _risk_level_for_score(final_risk),
             "gate_name": "DefaultV3Gate",
         }
         self._gate_count += 1
 
         whatif_result = None
-        if self.enable_counterfactual and risk_score >= self.risk_threshold:
-            whatif_result = self._counterfactual_whatif(agent_id, tool_name, risk_score, action)
+        if self.enable_counterfactual and final_risk >= self.risk_threshold:
+            whatif_result = self._counterfactual_engine.analyze_intervention(
+                graph=self.behavior_graph,
+                event_id=node.node_id,
+            ).to_dict()
 
         self.world.patch_state(
             {
                 f"last_tool_{agent_id}": {
                     "tool": tool_name,
-                    "risk": risk_score,
+                    "risk": final_risk,
                     "action": action,
                     "time": time.time(),
                 }
@@ -234,7 +299,7 @@ class V3ShieldEngine:
                 "node_id": node.node_id,
                 "agent_id": agent_id,
                 "tool_name": tool_name,
-                "risk_score": risk_score,
+                "risk_score": final_risk,
                 "gate_action": action,
                 "branches_generated": len(branches),
                 "whatif_triggered": whatif_result is not None,
@@ -246,14 +311,15 @@ class V3ShieldEngine:
             "node_id": node.node_id,
             "session_id": self.session_id,
             "decision": action.lower() if action != "HUMAN_REVIEW" else "review",
-            "risk_level": _risk_level_for_score(risk_score),
-            "risk_score": risk_score,
+            "risk_level": _risk_level_for_score(final_risk),
+            "risk_score": final_risk,
             "reasoning": gate_result["reason"],
             "behavior_graph_summary": self.behavior_graph.summary(),
             "gate_result": gate_result,
             "future_branches": [branch.to_dict() for branch in branches],
             "whatif_result": whatif_result,
             "critical_nodes": [n.node_id for n in self.behavior_graph.get_critical_nodes()],
+            "graph_risk_state": self._graph_risk_state.to_dict() if self._graph_risk_state else None,
         }
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:
@@ -282,21 +348,7 @@ class V3ShieldEngine:
             "behavior_graph": self.behavior_graph.summary(),
             "gate_count": self._gate_count,
             "world_state_keys": list(self.world.state.data.keys()),
-            # 注册表视图：当前有多少活跃 session、淘汰策略如何配置。
-            # 便于在排查内存增长时直接从 status 看到，而不用另查
-            # /api/health_detailed。
-            "registry": self._registry_snapshot(),
         }
-
-    @staticmethod
-    def _registry_snapshot() -> Dict[str, Any]:
-        """Best-effort snapshot of the shared engine registry."""
-        try:
-            from app.engine_registry import registry_stats
-
-            return registry_stats()
-        except Exception:  # pragma: no cover - registry must never break status
-            return {}
 
     def export_chain(self) -> Dict[str, Any]:
         return {
@@ -318,6 +370,8 @@ class V3ShieldEngine:
             },
             "audit_chain": self.audit_logger.export_chain(),
         }
+
+    # ── Private Methods ───────────────────────────────────────────────────
 
     def _generate_future_branches(
         self, agent_id: str, tool_name: str, risk_score: float
@@ -357,8 +411,9 @@ class V3ShieldEngine:
     def _summarize_params(tool_name: str, params: Dict[str, Any]) -> str:
         """生成参数摘要（图谱展示用，必须先脱敏）。
 
-        脱敏逻辑在 app.shield.redaction：递归处理嵌套结构，并按归一化
-        键名 + 已知敏感子串匹配（passwd / api_key_id / X-Api-Key 等变体）。
+        脱敏逻辑在 app.shield.redaction：递归处理嵌套 dict/list，键名归一化后
+        匹配已知敏感子串（passwd / api_key_id / X-Api-Key / AUTH_TOKEN 等变体）。
+        旧实现只做顶层精确匹配，嵌套值和键名变体都会泄漏。
         """
         return _summarize_params_redacted(tool_name, params)
 
@@ -377,36 +432,6 @@ class V3ShieldEngine:
         if action == "HUMAN_REVIEW":
             return f"0.60 <= risk_score {risk_score:.2f} < 0.90"
         return f"risk_score {risk_score:.2f} < 0.60"
-
-    @staticmethod
-    def _counterfactual_whatif(
-        agent_id: str, tool_name: str, risk_score: float, action: str
-    ) -> Dict[str, Any]:
-        projected_risk = round(risk_score * 0.5, 3)
-        risk_delta = round(projected_risk - risk_score, 3)
-        return {
-            "scenario_id": f"whatif_{uuid.uuid4().hex[:8]}",
-            "label": f"block {agent_id}.{tool_name} before execution",
-            "baseline_action": action,
-            "hypothesis": {
-                "type": "block_tool_call",
-                "agent_id": agent_id,
-                "tool_name": tool_name,
-            },
-            "risk_delta": risk_delta,
-            "projected_outcome": {
-                "blocked": True,
-                "baseline_risk": risk_score,
-                "projected_risk": projected_risk,
-                "risk_reduced_by": round(risk_score - projected_risk, 3),
-                "agents_affected": [agent_id],
-            },
-            "comparison": {
-                "baseline_risk": risk_score,
-                "projected_risk_after_block": projected_risk,
-                "delta": risk_delta,
-            },
-        }
 
     def _apply_intervention(self, intervention: Dict[str, Any]) -> None:
         itype = intervention.get("type", "")

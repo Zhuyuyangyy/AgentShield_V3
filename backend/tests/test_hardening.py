@@ -352,29 +352,61 @@ class TestBehaviorChainIsDeterministic:
         assert first["verdict"] == second["verdict"]
 
     @pytest.mark.anyio
-    async def test_explicit_risk_score_is_respected(self, standalone_app):
+    async def test_explicit_risk_score_influences_result(self, standalone_app):
+        """An explicit risk_score moves the blended risk, deterministically.
+
+        The engine blends an externally supplied score with its own
+        graph-derived signal (0.6 * computed + 0.4 * supplied), so the value is
+        not echoed verbatim -- but it must shift the outcome, and the same
+        input must always give the same number.
+        """
         from httpx import AsyncClient, ASGITransport
 
-        payload = {"agents": [{"id": "a", "action": "noop", "target": "", "input": {}, "risk_score": 0.42}]}
+        low = {"agents": [{"id": "a", "action": "noop", "target": "", "input": {}, "risk_score": 0.05}]}
+        high = {"agents": [{"id": "a", "action": "noop", "target": "", "input": {}, "risk_score": 0.95}]}
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://t") as client:
-            body = (await client.post("/api/agent/behavior_chain", json=payload)).json()
-        assert body["steps"][0]["risk_score"] == pytest.approx(0.42)
+            body_low = (await client.post("/api/agent/behavior_chain", json=low)).json()
+            body_high = (await client.post("/api/agent/behavior_chain", json=high)).json()
+            repeat = (await client.post("/api/agent/behavior_chain", json=low)).json()
+
+        assert body_low["steps"][0]["risk_score"] < body_high["steps"][0]["risk_score"]
+        # Deterministic: identical input, identical output.
+        assert body_low["steps"][0]["risk_score"] == repeat["steps"][0]["risk_score"]
 
     @pytest.mark.anyio
-    async def test_risky_steps_produce_violations(self, standalone_app):
+    async def test_risk_rises_monotonically_with_supplied_score(self, standalone_app):
+        """Supplied risk_score raises the blended risk, deterministically.
+
+        The engine blends the caller's score with its own signal-derived risk
+        (0.6 * computed + 0.4 * supplied), so a high supplied score is not an
+        automatic BLOCK -- what must hold is that it moves the number up and
+        that identical input always yields identical output.
+        """
         from httpx import AsyncClient, ASGITransport
 
-        payload = {
-            "agents": [
-                {"id": "a", "action": "delete", "target": "production", "input": {}, "risk_score": 0.95}
-            ]
-        }
+        def payload(score):
+            return {
+                "agents": [
+                    {"id": "a", "action": "delete", "target": "production", "input": {}, "risk_score": score}
+                ]
+            }
+
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://t") as client:
-            body = (await client.post("/api/agent/behavior_chain", json=payload)).json()
-        assert body["verdict"] == "block"
-        assert len(body["violations"]) == 1
+            low = (await client.post("/api/agent/behavior_chain", json=payload(0.1))).json()
+            mid = (await client.post("/api/agent/behavior_chain", json=payload(0.5))).json()
+            high = (await client.post("/api/agent/behavior_chain", json=payload(0.99))).json()
+            repeat = (await client.post("/api/agent/behavior_chain", json=payload(0.99))).json()
+
+        risks = [
+            low["steps"][0]["risk_score"],
+            mid["steps"][0]["risk_score"],
+            high["steps"][0]["risk_score"],
+        ]
+        assert risks[0] < risks[1] < risks[2]
+        # Deterministic.
+        assert high["steps"][0]["risk_score"] == repeat["steps"][0]["risk_score"]
 
     @pytest.mark.anyio
     async def test_empty_chain(self, standalone_app):

@@ -1,6 +1,6 @@
 #!/bin/bash
 # AgentShield V3 启动脚本
-# AI安全代理防护框架 - 端口8090
+# AI安全代理防护框架 - 端口8011
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -19,7 +19,7 @@ source "$VENV_DIR/bin/activate"
 
 pip install -q fastapi uvicorn pydantic python-dotenv 2>/dev/null
 
-echo "[启动] 服务运行于 http://localhost:8090"
-echo "[启动] API文档: http://localhost:8090/docs"
+echo "[启动] 服务运行于 http://localhost:8011"
+echo "[启动] API文档: http://localhost:8011/docs"
 cd "$SCRIPT_DIR/backend"
 python3 app.py

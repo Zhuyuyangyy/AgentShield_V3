@@ -1,5 +1,5 @@
 {
-  "dataset": "D:\\ZYY Project\\AgentShield_V3\\benchmark\\test_cases\\test_cases_semireal_150.json",
+  "dataset": "/workspace/benchmark/test_cases/test_cases_semireal_150.json",
   "total_cases": 150,
   "labels": [
     "ALLOW",
@@ -17,7 +17,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.2333,
       "mean_absolute_score_error": 0.0873,
-      "runtime_ms_per_case": 0.0059,
+      "runtime_ms_per_case": 0.0088,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -46,7 +46,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.6333,
       "mean_absolute_score_error": 0.078,
-      "runtime_ms_per_case": 0.0058,
+      "runtime_ms_per_case": 0.0079,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -75,7 +75,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.2333,
       "mean_absolute_score_error": 0.0873,
-      "runtime_ms_per_case": 0.0059,
+      "runtime_ms_per_case": 0.008,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -104,7 +104,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.2333,
       "mean_absolute_score_error": 0.0873,
-      "runtime_ms_per_case": 0.0066,
+      "runtime_ms_per_case": 0.0081,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -133,7 +133,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.2333,
       "mean_absolute_score_error": 0.0873,
-      "runtime_ms_per_case": 0.0074,
+      "runtime_ms_per_case": 0.008,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -162,7 +162,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.1,
       "mean_absolute_score_error": 0.0967,
-      "runtime_ms_per_case": 0.0053,
+      "runtime_ms_per_case": 0.0074,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,
@@ -191,7 +191,7 @@
       "false_block_rate": 0.0,
       "human_review_rate": 0.6,
       "mean_absolute_score_error": 0.0753,
-      "runtime_ms_per_case": 0.0042,
+      "runtime_ms_per_case": 0.0048,
       "per_label": {
         "ALLOW": {
           "precision": 1.0,

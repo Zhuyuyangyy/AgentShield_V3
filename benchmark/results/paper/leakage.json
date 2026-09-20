@@ -1,0 +1,54 @@
+{
+  "experiment_name": "leakage_test",
+  "description": "Verify no baseline accesses hidden ground-truth labels",
+  "results": [
+    {
+      "baseline_name": "tool_name_rules",
+      "normal_accuracy": 0.6216666666666667,
+      "shuffled_accuracy": 0.6216666666666667,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    },
+    {
+      "baseline_name": "content_keywords",
+      "normal_accuracy": 0.44,
+      "shuffled_accuracy": 0.44,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    },
+    {
+      "baseline_name": "local_context",
+      "normal_accuracy": 0.675,
+      "shuffled_accuracy": 0.675,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    },
+    {
+      "baseline_name": "llm_as_judge",
+      "normal_accuracy": 0.8566666666666667,
+      "shuffled_accuracy": 0.8566666666666667,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    },
+    {
+      "baseline_name": "agentshield_no_graph",
+      "normal_accuracy": 0.9433333333333334,
+      "shuffled_accuracy": 0.9433333333333334,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    },
+    {
+      "baseline_name": "agentshield_graph_only",
+      "normal_accuracy": 1.0,
+      "shuffled_accuracy": 1.0,
+      "accuracy_delta": 0.0,
+      "leakage_suspected": false
+    }
+  ],
+  "summary": {
+    "total_items": 600,
+    "baselines_with_suspected_leakage": 0,
+    "all_clean": true
+  },
+  "timestamp": 1782209050.5474281
+}

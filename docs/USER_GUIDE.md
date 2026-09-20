@@ -53,7 +53,7 @@ pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Expected output: `14 passed`
+Expected output: `242 passed, 1 skipped`
 
 ### 1.4 Start the API Server
 
@@ -599,10 +599,10 @@ For production deployment, configure CORS origins and add authentication middlew
 docker build -t agentshield-v3 .
 
 # Run
-docker run -p 8090:8090 agentshield-v3
+docker run -p 8011:8011 agentshield-v3
 ```
 
-The Dockerfile uses Python 3.11-slim and exposes port 8090.
+The Dockerfile uses Python 3.11-slim and exposes port 8011.
 
 ### 5.6 Session Persistence
 
