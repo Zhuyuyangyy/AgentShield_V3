@@ -63,7 +63,7 @@ class TestBehaviorGraphRiskPropagation:
             params_summary="export data", fuse_action="allow",
             shadow_risk_score=0.4, parent_node_id=node_a.node_id,
         )
-        node_c = graph.add_tool_call_as_node(
+        graph.add_tool_call_as_node(
             agent_id="agent_3", tool_name="send_email",
             params_summary="send to external", fuse_action="block",
             shadow_risk_score=0.9, parent_node_id=node_b.node_id,
@@ -135,7 +135,11 @@ class TestBehaviorGraphRiskPropagation:
         assert node_d.node_id in downstream_ids
 
     def test_propagation_updates_inherited_risk_on_root(self):
-        """compute_risk_propagation updates inherited_risk on the root node."""
+        """compute_risk_propagation reports inherited_risk for every node.
+
+        The root has no upstream, so its inherited risk is 0 by definition;
+        the leaf's inherited risk comes from the root along the edge.
+        """
         from app.shield.agent_behavior_graph import AgentBehaviorGraph
 
         graph = AgentBehaviorGraph(session_id="rp_amplified")
@@ -153,11 +157,18 @@ class TestBehaviorGraphRiskPropagation:
 
         result = graph.compute_risk_propagation()
 
-        # Root is in the propagation result
+        # Both nodes are in the propagation result.
         assert node_root.node_id in result
+        assert node_leaf.node_id in result
+
+        # The root has no upstream: nothing is inherited.
+        assert node_root.inherited_risk == pytest.approx(0.0)
         assert result[node_root.node_id] == pytest.approx(0.1)
-        # Root's inherited_risk is updated
-        assert node_root.inherited_risk == pytest.approx(0.1)
+
+        # The leaf's own 0.95 dominates the 0.1 flowing in from the root, so
+        # it inherits nothing and its total risk stays 0.95.
+        assert node_leaf.inherited_risk == pytest.approx(0.0)
+        assert result[node_leaf.node_id] == pytest.approx(0.95)
 
     def test_no_amplification_for_low_risk_leaf(self):
         """Low-risk leaf nodes do not trigger amplification on parents."""
@@ -170,7 +181,7 @@ class TestBehaviorGraphRiskPropagation:
             params_summary="safe read", fuse_action="allow",
             shadow_risk_score=0.05,
         )
-        node_child = graph.add_tool_call_as_node(
+        graph.add_tool_call_as_node(
             agent_id="child", tool_name="log_write",
             params_summary="log", fuse_action="allow",
             shadow_risk_score=0.08, parent_node_id=node_parent.node_id,
@@ -339,7 +350,7 @@ class TestV3EngineRiskPropagation:
             fuse_action="allow", shadow_risk_score=0.3,
             parent_node_id=node_a.node_id,
         )
-        node_c = graph.add_tool_call_as_node(
+        graph.add_tool_call_as_node(
             agent_id="c", tool_name="s", params_summary="s",
             fuse_action="block", shadow_risk_score=0.9,
             parent_node_id=node_b.node_id,
@@ -347,9 +358,11 @@ class TestV3EngineRiskPropagation:
 
         result = graph.compute_risk_propagation()
 
-        # Root node A (no incoming edges) has inherited_risk updated
+        # Root node A (no incoming edges) is in the result with its own risk.
         assert node_a.node_id in result
-        assert node_a.inherited_risk == pytest.approx(0.1)
+        assert result[node_a.node_id] == pytest.approx(0.1)
+        # The root has no upstream, so it inherits nothing.
+        assert node_a.inherited_risk == pytest.approx(0.0)
 
         # All nodes are in the graph
         assert len(graph.nodes) == 3
@@ -376,6 +389,160 @@ class TestV3EngineRiskPropagation:
             params={"sql": "SELECT 1"}, risk_score=0.82, fuse_action="allow",
         )
         assert len(sql_result["future_branches"]) > 0
+
+
+class TestRiskPropagationDeterminism:
+    """Risk propagation must be order-independent and direction-correct.
+
+    These tests pin the semantics fixed in ``compute_risk_propagation``:
+    risk flows from upstream to downstream, ``risk_flow`` on an edge is the
+    *upstream* node's risk, and the result does not depend on the order in
+    which nodes were inserted.
+    """
+
+    @staticmethod
+    def _chain(risks):
+        from app.shield.agent_behavior_graph import AgentBehaviorGraph
+
+        graph = AgentBehaviorGraph(session_id="det")
+        parent = None
+        nodes = []
+        for i, risk in enumerate(risks):
+            node = graph.add_tool_call_as_node(
+                agent_id="a",
+                tool_name=f"tool_{i}",
+                params_summary="",
+                fuse_action="allow",
+                shadow_risk_score=risk,
+                parent_node_id=parent,
+            )
+            nodes.append(node)
+            parent = node.node_id
+        return graph, nodes
+
+    def test_risk_flows_downstream(self):
+        """A high-risk upstream node raises a low-risk downstream node."""
+        graph, nodes = self._chain([0.9, 0.05])
+        result = graph.compute_risk_propagation()
+        root, leaf = nodes
+        assert result[leaf.node_id] > leaf.shadow_risk_score
+        assert leaf.inherited_risk > 0
+        assert leaf.downstream_risk_amplified is True
+
+    def test_leaf_inherits_nothing_when_upstream_is_safer(self):
+        graph, nodes = self._chain([0.1, 0.9])
+        graph.compute_risk_propagation()
+        root, leaf = nodes
+        assert leaf.inherited_risk == pytest.approx(0.0)
+        assert leaf.downstream_risk_amplified is False
+
+    def test_root_never_inherits(self):
+        """The first node has no upstream, so its inherited risk is 0."""
+        graph, nodes = self._chain([0.4, 0.6, 0.8])
+        result = graph.compute_risk_propagation()
+        assert nodes[0].inherited_risk == pytest.approx(0.0)
+        assert result[nodes[0].node_id] == pytest.approx(0.4)
+
+    def test_multi_hop_propagation_reaches_last_node(self):
+        """Risk propagates across more than one hop."""
+        graph, nodes = self._chain([0.9, 0.05, 0.02])
+        graph.compute_risk_propagation()
+        assert nodes[1].inherited_risk > 0
+        assert nodes[2].inherited_risk > 0
+
+    def test_edge_risk_flow_is_upstream_risk(self):
+        """risk_flow on an edge must be the upstream node's risk."""
+        graph, nodes = self._chain([0.9, 0.05])
+        edges = list(graph.edges.values())
+        assert len(edges) == 1
+        assert edges[0].risk_flow == pytest.approx(0.9)
+
+    def test_result_is_independent_of_insertion_order(self):
+        """The same graph yields the same result regardless of build order."""
+        from app.shield.agent_behavior_graph import AgentBehaviorGraph
+
+        def build(reversed_insert):
+            graph = AgentBehaviorGraph(session_id="order")
+            specs = [("A", 0.3), ("B", 0.8), ("C", 0.1)]
+            if reversed_insert:
+                specs = list(reversed(specs))
+            by_name = {}
+            for name, risk in specs:
+                node = graph.add_tool_call_as_node(
+                    agent_id="a",
+                    tool_name=name,
+                    params_summary="",
+                    fuse_action="allow",
+                    shadow_risk_score=risk,
+                    parent_node_id=by_name.get("A") if name != "A" else None,
+                )
+                by_name[name] = node.node_id
+            graph.compute_risk_propagation()
+            return {
+                name: graph.nodes[nid].inherited_risk
+                for name, nid in by_name.items()
+            }
+
+        assert build(False) == build(True)
+
+    def test_diamond_takes_max_incoming_path(self):
+        """With two parents, the higher-risk path wins."""
+        from app.shield.agent_behavior_graph import AgentBehaviorGraph
+
+        graph = AgentBehaviorGraph(session_id="diamond")
+        a = graph.add_tool_call_as_node(
+            agent_id="a", tool_name="A", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.5,
+        )
+        b = graph.add_tool_call_as_node(
+            agent_id="b", tool_name="B", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.1, parent_node_id=a.node_id,
+        )
+        c = graph.add_tool_call_as_node(
+            agent_id="c", tool_name="C", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.9, parent_node_id=a.node_id,
+        )
+        # D has two parents: B (total risk 0.1) and C (total risk 0.9).
+        d = graph.add_tool_call_as_node(
+            agent_id="d", tool_name="D", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.05, parent_node_id=b.node_id,
+        )
+        graph.add_edge(
+            __import__(
+                "app.shield.agent_behavior_graph", fromlist=["BehaviorEdge"]
+            ).BehaviorEdge(
+                from_node_id=c.node_id, to_node_id=d.node_id, risk_flow=0.9
+            )
+        )
+        graph.compute_risk_propagation()
+        # D's best incoming edge is from C (total risk 0.9). The edge's
+        # risk_flow (0.9) attenuates it once, so D's inherited increment is
+        # 0.9 * 0.9 - 0.05 = 0.76.
+        assert d.inherited_risk == pytest.approx(0.9 * 0.9 - 0.05)
+        assert d.downstream_risk_amplified is True
+
+    def test_cycles_terminate(self):
+        """A cycle (agents calling each other) must not hang or raise."""
+        from app.shield.agent_behavior_graph import AgentBehaviorGraph
+
+        graph = AgentBehaviorGraph(session_id="cycle")
+        a = graph.add_tool_call_as_node(
+            agent_id="a", tool_name="A", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.6,
+        )
+        b = graph.add_tool_call_as_node(
+            agent_id="b", tool_name="B", params_summary="",
+            fuse_action="allow", shadow_risk_score=0.3, parent_node_id=a.node_id,
+        )
+        graph.add_edge(
+            __import__(
+                "app.shield.agent_behavior_graph", fromlist=["BehaviorEdge"]
+            ).BehaviorEdge(
+                from_node_id=b.node_id, to_node_id=a.node_id, risk_flow=0.3
+            )
+        )
+        result = graph.compute_risk_propagation()  # must terminate
+        assert len(result) == 2
 
 
 if __name__ == "__main__":

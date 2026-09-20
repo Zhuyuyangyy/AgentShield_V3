@@ -20,6 +20,12 @@ from enum import Enum
 from typing import Optional
 
 
+# 上游传导风险超过该阈值时，节点被标记为「放大了下游风险」。
+_AMPLIFICATION_THRESHOLD = 0.1
+# 判定「关键节点」的本地风险阈值（与 get_critical_nodes 的默认参数一致）。
+_CRITICAL_RISK_THRESHOLD = 0.7
+
+
 class NodeRiskStatus(Enum):
     SAFE = "safe"
     LOW = "low"
@@ -113,6 +119,16 @@ class AgentBehaviorGraph:
         self.edges: dict[str, BehaviorEdge] = {}
         self._node_list: list[BehaviorNode] = []   # 按时间顺序
         self._adjacency: dict[str, list[str]] = {}  # node_id → [child_node_ids]
+        # 增量风险传播的缓存与脏标记
+        self._total_risk_cache: dict[str, float] = {}
+        self._dirty_nodes: set[str] = set()
+        self._topo_cache: Optional[list[str]] = None
+        # 增量统计计数器（summary() 依赖，O(1) 而非 O(V)）
+        self._status_counts: dict[NodeRiskStatus, int] = {
+            status: 0 for status in NodeRiskStatus
+        }
+        self._action_counts: dict[str, int] = {}
+        self._critical_node_ids: set[str] = set()
 
     # ─── 图写入 ──────────────────────────────────────────────
 
@@ -121,14 +137,20 @@ class AgentBehaviorGraph:
         if node.node_id in self.nodes:
             # 已存在则更新（同一工具调用可能产生多个审计结果）
             existing = self.nodes[node.node_id]
+            before = (existing.risk_status, existing.fuse_action)
             for k, v in node.__dict__.items():
                 if v != getattr(existing, k):
                     setattr(existing, k, v)
+            self._bump_status_counters(before, existing)
+            # 本地风险等字段可能被改写，需重算该节点及其下游。
+            self._mark_dirty(node.node_id)
             return existing
 
         self.nodes[node.node_id] = node
         self._node_list.append(node)
         self._adjacency[node.node_id] = []
+        self._bump_status_counters(None, node)
+        self._mark_dirty(node.node_id)
         return node
 
     def add_edge(self, edge: BehaviorEdge) -> BehaviorEdge:
@@ -142,6 +164,9 @@ class AgentBehaviorGraph:
 
         self.edges[edge.edge_id] = edge
         self._adjacency[edge.from_node_id].append(edge.to_node_id)
+        # 新边让下游节点多了一条风险来源，并使拓扑序失效。
+        self._mark_dirty(edge.to_node_id)
+        self._topo_cache = None
         return edge
 
     def add_tool_call_as_node(
@@ -174,11 +199,15 @@ class AgentBehaviorGraph:
         self.add_node(node)
 
         if parent_node_id and parent_node_id in self.nodes:
+            parent = self.nodes[parent_node_id]
             edge = BehaviorEdge(
                 from_node_id=parent_node_id,
                 to_node_id=node.node_id,
                 edge_type=edge_type,
-                risk_flow=shadow_risk_score,
+                # 沿这条边流动的风险量取**上游**节点的风险：风险沿调用链
+                # 从上游传导到下游。（此前误用下游的 shadow_risk_score，
+                # 导致上游风险再高也传不下去。）
+                risk_flow=parent.shadow_risk_score,
             )
             self.add_edge(edge)
 
@@ -203,30 +232,63 @@ class AgentBehaviorGraph:
         ]
 
     def get_risk_path(self, start_node_id: str, end_node_id: str) -> list[BehaviorNode]:
-        """
-        提取从 start 到 end 的最风险路径（风险加权最短路径）
+        """返回从 start 到 end 的**最风险路径**。
+
+        “最风险”定义为路径上所有节点的总风险（传播后）之和最大的那条路径。
+        与旧实现不同：旧版本是纯 BFS 最短路径，docstring 却写着
+        "risk-weighted shortest path / higher risk = shorter effective distance"，
+        即声称按风险加权而实际没有。
+
+        采用 Dijkstra（最大化路径风险之和）；若图中存在环，
+        则退化为按访问顺序的有界搜索，保证终止。
         """
         if start_node_id not in self.nodes or end_node_id not in self.nodes:
             return []
+        if start_node_id == end_node_id:
+            return [self.nodes[start_node_id]]
 
-        # BFS with risk as weight (higher risk = shorter effective distance)
-        visited = set()
-        queue = [(start_node_id, [start_node_id])]
+        # 路径风险之和（越大越好）作为 Dijkstra 的“距离”。
+        best: dict[str, float] = {start_node_id: self._path_risk(self.nodes[start_node_id])}
+        prev: dict[str, Optional[str]] = {start_node_id: None}
+        # 最大堆：Python 只有最小堆，因此存取正号。
+        import heapq
 
-        while queue:
-            node_id, path = queue.pop(0)
-            if node_id in visited:
+        heap: list[tuple[float, str]] = [(-best[start_node_id], start_node_id)]
+        settled: set[str] = set()
+
+        while heap:
+            neg_score, node_id = heapq.heappop(heap)
+            if node_id in settled:
                 continue
-            visited.add(node_id)
-
+            settled.add(node_id)
             if node_id == end_node_id:
-                return [self.nodes[nid] for nid in path]
+                break
 
             for child_id in self._adjacency.get(node_id, []):
-                if child_id not in visited:
-                    queue.append((child_id, path + [child_id]))
+                if child_id not in self.nodes or child_id in settled:
+                    continue
+                candidate = best[node_id] + self._path_risk(self.nodes[child_id])
+                if candidate > best.get(child_id, float("-inf")):
+                    best[child_id] = candidate
+                    prev[child_id] = node_id
+                    heapq.heappush(heap, (-candidate, child_id))
 
-        return []
+        if end_node_id not in prev:
+            return []
+
+        # 回溯路径
+        path_ids: list[str] = []
+        cursor: Optional[str] = end_node_id
+        while cursor is not None:
+            path_ids.append(cursor)
+            cursor = prev.get(cursor)
+        path_ids.reverse()
+        return [self.nodes[nid] for nid in path_ids if nid in self.nodes]
+
+    @staticmethod
+    def _path_risk(node: BehaviorNode) -> float:
+        """路径评估中一个节点的风险贡献（本地风险）。"""
+        return node.shadow_risk_score
 
     def get_downstream_nodes(self, node_id: str) -> list[BehaviorNode]:
         """获取某节点的所有下游节点"""
@@ -246,85 +308,152 @@ class AgentBehaviorGraph:
         return result
 
     def compute_risk_propagation(self) -> dict[str, float]:
-        """
-        从叶子节点逆向传播，计算每个节点继承了多少上游风险。
-        风险传播规则：
-          inherited_risk[node] = max(
-              inherited_risk[node],
-              inherited_risk[parent] * edge.risk_flow
-          )
-        叶子节点先计算自己本地的 shadow_risk_score，
-        然后逆向遍历更新所有祖先节点的 inherited_risk。
+        """从上游向下游传播，计算每个节点继承了多少上游风险。
+
+        风险传播规则::
+
+            local[node]      = node.shadow_risk_score
+            total[node]      = max(local[node],
+                                   max over incoming edges e of total[e.from] * e.risk_flow)
+            inherited[node]  = total[node] - local[node]
+
+        返回值是**传播后的总风险** ``total[node]``（即该节点在考虑上游传导
+        后的风险水平），与 ``risk_local_context`` 等上游消费方的语义一致。
+        每个节点的 :attr:`BehaviorNode.inherited_risk` 则被更新为
+        ``inherited[node]`` —— 纯粹来自上游传导的增量，本地风险不计入。
+
+        计算走**拓扑序**（自根向叶），与节点插入顺序、边遍历顺序无关：
+        同一张图始终得到同一结果。
+
+        这是**增量**实现：只有自上次计算以来图发生变化（新增节点/边，或某
+        节点的本地风险被改写）才会重算，且只重算受影响的下游子图。典型
+        的「追加一次工具调用」场景下，本次调用只影响新节点及其后代，
+        因此单次成本与图规模无关。
         """
         if not self._node_list:
             return {}
 
-        # 按时间顺序建立父子关系映射
-        # 从最后一个往前推
-        node_risk: dict[str, float] = {}
+        dirty = self._collect_dirty_nodes()
+        if not dirty:
+            # 图未变化：返回缓存结果（与全量重算完全一致）。
+            return dict(self._total_risk_cache)
 
-        # 叶子节点 = 没有子节点的节点
-        has_child = {edge.to_node_id for edge in self.edges.values()}
-        leaf_nodes = [n for n in self._node_list if n.node_id not in has_child]
+        order = self._topological_order()
+        total_risk = dict(self._total_risk_cache)
 
-        # 每个叶子从自己的 shadow_risk_score 开始
-        for leaf in leaf_nodes:
-            node_risk[leaf.node_id] = leaf.shadow_risk_score
+        for nid in order:
+            if nid not in dirty and nid in total_risk:
+                continue  # 未受影响且已有缓存值，跳过
+            candidates = [
+                total_risk[src] * flow
+                for src, flow in self._incoming_edges(nid)
+                if src in total_risk
+            ]
+            base = self.nodes[nid].shadow_risk_score if nid in self.nodes else 0.0
+            total_risk[nid] = max([base] + candidates)
 
-        # 逆向传播（从叶子到根）
-        # 建立 to → from 的反向邻接表
-        reverse_adj: dict[str, list[str]] = {}
-        for nid in self.nodes:
-            reverse_adj[nid] = []
-        for edge in self.edges.values():
-            reverse_adj[edge.to_node_id].append(edge.from_node_id)
-
-        # BFS 向上传播
-        visited = set()
-        # Track depth from leaf for dynamic decay
-        node_depth: dict[str, int] = {}
-        for leaf in leaf_nodes:
-            node_depth[leaf.node_id] = 0
-        queue = list(leaf_nodes)
-
-        while queue:
-            node = queue.pop(0)
-            if node.node_id in visited:
+        # 回写 inherited_risk（相对本地风险的增量），并标记放大器节点。
+        for nid, total in total_risk.items():
+            if nid not in self.nodes:
                 continue
-            visited.add(node.node_id)
+            node = self.nodes[nid]
+            inherited = max(0.0, total - node.shadow_risk_score)
+            node.inherited_risk = inherited
+            if inherited > _AMPLIFICATION_THRESHOLD:
+                node.downstream_risk_amplified = True
 
-            current_risk = node_risk.get(node.node_id, 0.0)
-            current_depth = node_depth.get(node.node_id, 0)
+        self._total_risk_cache = total_risk
+        self._dirty_nodes.clear()
+        return dict(total_risk)
 
-            for parent_id in reverse_adj.get(node.node_id, []):
-                if parent_id not in self.nodes:
+    def _incoming_edges(self, node_id: str) -> list[tuple[str, float]]:
+        """node_id 的入边列表 [(from, risk_flow), ...]。"""
+        edges = []
+        for edge in self.edges.values():
+            if edge.to_node_id == node_id and edge.from_node_id in self.nodes:
+                edges.append((edge.from_node_id, edge.risk_flow))
+        return edges
+
+    def _collect_dirty_nodes(self) -> set[str]:
+        """返回需要重算的节点集合。
+
+        显式标记（新增节点/边、本地风险被改写）的节点，加上它们的所有
+        下游后代 —— 上游变化会沿边传导下来。
+        """
+        dirty = set(self._dirty_nodes)
+        # 首次计算（缓存为空）时所有节点都脏。
+        if not self._total_risk_cache:
+            dirty.update(self.nodes.keys())
+        # 沿出边扩展，把下游后代纳入。
+        frontier = list(dirty)
+        while frontier:
+            nid = frontier.pop()
+            for child in self._adjacency.get(nid, []):
+                if child in self.nodes and child not in dirty:
+                    dirty.add(child)
+                    frontier.append(child)
+        return dirty
+
+    def _mark_dirty(self, *node_ids: str) -> None:
+        """标记节点为待重算（内部使用）。"""
+        self._dirty_nodes.update(node_ids)
+
+    def invalidate_risk_cache(self) -> None:
+        """丢弃传播缓存，下次 compute 时全量重算。"""
+        self._total_risk_cache = {}
+        self._dirty_nodes.clear()
+        self._topo_cache = None
+
+    def _topological_order(self) -> list[str]:
+        """返回自根向叶的处理顺序。
+
+        使用 Kahn 算法：每个节点排在其所有上游节点之后。遇到环时
+        （agent 互相调用），环上剩余节点按 id 稳定追加，保证算法必然
+        终止且结果可复现。
+
+        结果会被缓存：拓扑序只取决于**边集**，因此仅当新增边时才失效。
+        工具调用不断追加但不成环的典型场景下，这避免了每次传播都对全图
+        重新排序。
+        """
+        if self._topo_cache is not None:
+            return self._topo_cache
+
+        out_edges: dict[str, list[str]] = {
+            nid: list(children) for nid, children in self._adjacency.items()
+        }
+        in_degree: dict[str, int] = {nid: 0 for nid in self.nodes}
+        for nid, children in out_edges.items():
+            for child in children:
+                if child in in_degree:
+                    in_degree[child] += 1
+
+        ready = sorted(nid for nid, deg in in_degree.items() if deg == 0)
+        order: list[str] = []
+        seen: set[str] = set()
+
+        while ready:
+            nid = ready.pop(0)
+            if nid in seen:
+                continue
+            seen.add(nid)
+            order.append(nid)
+            newly_ready = []
+            for child in out_edges.get(nid, []):
+                if child not in in_degree:
                     continue
-                parent = self.nodes[parent_id]
-                # Dynamic decay based on chain length:
-                # decay = 1.0 / (1 + 0.3 * chain_length)
-                # chain_length grows as we propagate further from the leaf
-                chain_length = current_depth + 1
-                decay = 1.0 / (1.0 + 0.3 * chain_length)
-                inherited = current_risk * decay
-                if parent_id not in node_risk:
-                    node_risk[parent_id] = inherited
-                else:
-                    node_risk[parent_id] = max(node_risk[parent_id], inherited)
-                node_depth[parent_id] = chain_length
+                in_degree[child] -= 1
+                if in_degree[child] == 0 and child not in seen:
+                    newly_ready.append(child)
+            if newly_ready:
+                ready.extend(sorted(newly_ready))
 
-                # 标记是否放大下游风险
-                if inherited > 0.1:
-                    parent.downstream_risk_amplified = True
+        # 环上残留节点：稳定追加，确保不遗漏
+        for nid in sorted(self.nodes):
+            if nid not in seen:
+                order.append(nid)
 
-                if parent_id not in visited:
-                    queue.append(parent)
-
-        # 更新节点 inherited_risk
-        for nid, ir in node_risk.items():
-            if nid in self.nodes:
-                self.nodes[nid].inherited_risk = ir
-
-        return node_risk
+        self._topo_cache = order
+        return order
 
     def to_graph_dict(self) -> dict:
         """导出为 dict（用于序列化或前端图谱渲染）"""
@@ -350,20 +479,59 @@ class AgentBehaviorGraph:
         return NodeRiskStatus.SAFE
 
     def summary(self) -> dict:
-        """图谱统计摘要"""
-        nodes = self._node_list
+        """图谱统计摘要。
+
+        计数由 :meth:`_bump_status_counters` 在写入路径上增量维护，
+        因此本方法是 O(1) 而非 O(V)。长时间会话下 ``process_tool_call``
+        每次都会调用 summary，全量遍历曾是主要热点。
+        """
         return {
             "session_id": self.session_id,
-            "total_nodes": len(nodes),
+            "total_nodes": len(self._node_list),
             "total_edges": len(self.edges),
             "risk_distribution": {
-                "safe": sum(1 for n in nodes if n.risk_status == NodeRiskStatus.SAFE),
-                "low": sum(1 for n in nodes if n.risk_status == NodeRiskStatus.LOW),
-                "medium": sum(1 for n in nodes if n.risk_status == NodeRiskStatus.MEDIUM),
-                "high": sum(1 for n in nodes if n.risk_status == NodeRiskStatus.HIGH),
-                "critical": sum(1 for n in nodes if n.risk_status == NodeRiskStatus.CRITICAL),
+                status.value: self._status_counts[status]
+                for status in NodeRiskStatus
             },
-            "critical_node_count": len(self.get_critical_nodes()),
-            "blocked_count": sum(1 for n in nodes if n.fuse_action == "block"),
-            "review_count": sum(1 for n in nodes if n.fuse_action == "human_review"),
+            "critical_node_count": len(self._critical_node_ids),
+            "blocked_count": self._action_counts.get("block", 0),
+            "review_count": self._action_counts.get("human_review", 0),
         }
+
+    # ─── 增量计数器维护 ───────────────────────────────────────────
+
+    def _bump_status_counters(self, before, node: BehaviorNode) -> None:
+        """把节点迁移到当前状态时更新所有增量计数器。
+
+        ``before`` 为 ``None`` 表示新节点；否则是写入前的
+        ``(risk_status, fuse_action)`` 快照。
+        """
+        if before is not None:
+            old_status, old_action = before
+            if old_status != node.risk_status:
+                self._status_counts[old_status] -= 1
+                self._status_counts[node.risk_status] += 1
+            if old_action != node.fuse_action:
+                self._action_counts[old_action] = (
+                    self._action_counts.get(old_action, 0) - 1
+                )
+                self._action_counts[node.fuse_action] = (
+                    self._action_counts.get(node.fuse_action, 0) + 1
+                )
+        else:
+            self._status_counts[node.risk_status] += 1
+            self._action_counts[node.fuse_action] = (
+                self._action_counts.get(node.fuse_action, 0) + 1
+            )
+        self._refresh_critical(node)
+
+    def _refresh_critical(self, node: BehaviorNode) -> None:
+        """按当前 shadow_risk_score / amplified 标志维护关键节点集合。"""
+        is_critical = (
+            node.shadow_risk_score >= _CRITICAL_RISK_THRESHOLD
+            and node.downstream_risk_amplified
+        )
+        if is_critical:
+            self._critical_node_ids.add(node.node_id)
+        else:
+            self._critical_node_ids.discard(node.node_id)
