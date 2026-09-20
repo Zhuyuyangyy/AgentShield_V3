@@ -15,7 +15,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check backend/ benchmark/ scripts/ --ignore=E501,W503
+      - run: ruff check backend/ --ignore=E501
+      # Research scripts legitimately insert sys.path before importing local
+      # modules (E402), use single-letter loop vars (E741) and one-line imports
+      # (E401). Dead code (F401/F841/F541) is still an error.
+      - run: ruff check benchmark/ benchmark/independent_eval/ scripts/ --ignore=E501,E402,E741,E401
 
   test:
     runs-on: ubuntu-latest
