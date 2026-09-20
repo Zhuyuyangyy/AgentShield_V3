@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
+from app.shield.redaction import summarize_params as _summarize_params_redacted
 from app.shield.v3_audit_logger import V3AuditLogger
 
 
@@ -281,7 +282,21 @@ class V3ShieldEngine:
             "behavior_graph": self.behavior_graph.summary(),
             "gate_count": self._gate_count,
             "world_state_keys": list(self.world.state.data.keys()),
+            # 注册表视图：当前有多少活跃 session、淘汰策略如何配置。
+            # 便于在排查内存增长时直接从 status 看到，而不用另查
+            # /api/health_detailed。
+            "registry": self._registry_snapshot(),
         }
+
+    @staticmethod
+    def _registry_snapshot() -> Dict[str, Any]:
+        """Best-effort snapshot of the shared engine registry."""
+        try:
+            from app.engine_registry import registry_stats
+
+            return registry_stats()
+        except Exception:  # pragma: no cover - registry must never break status
+            return {}
 
     def export_chain(self) -> Dict[str, Any]:
         return {
@@ -340,13 +355,12 @@ class V3ShieldEngine:
 
     @staticmethod
     def _summarize_params(tool_name: str, params: Dict[str, Any]) -> str:
-        sensitive_keys = {"password", "token", "secret", "api_key", "authorization", "credential"}
-        safe = {
-            str(key): "***" if str(key).lower() in sensitive_keys else value
-            for key, value in params.items()
-        }
-        body = ", ".join(f"{key}={value}" for key, value in safe.items())
-        return f"{tool_name}({body})"
+        """生成参数摘要（图谱展示用，必须先脱敏）。
+
+        脱敏逻辑在 app.shield.redaction：递归处理嵌套结构，并按归一化
+        键名 + 已知敏感子串匹配（passwd / api_key_id / X-Api-Key 等变体）。
+        """
+        return _summarize_params_redacted(tool_name, params)
 
     @staticmethod
     def _node_action(action: str) -> str:

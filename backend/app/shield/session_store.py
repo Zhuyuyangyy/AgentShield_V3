@@ -5,7 +5,7 @@ import json
 import sqlite3
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
 _SHIELD_DB = os.environ.get("SHIELD_DB", str(Path(__file__).parent.parent.parent / "shield_sessions.db"))
 
@@ -62,6 +62,20 @@ def load_session(session_id: str) -> Optional[Dict]:
         "graph_data": json.loads(row[6]),
         "audit_data": json.loads(row[7]),
     }
+
+def delete_session_db(session_id: str) -> bool:
+    """从 SQLite 删除 session 记录"""
+    conn = sqlite3.connect(_SHIELD_DB)
+    cur = conn.execute("DELETE FROM sessions WHERE session_id=?", (session_id,))
+    deleted = cur.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+# 对外保留 delete_session 名称（API 层使用）
+delete_session = delete_session_db
+
 
 def list_sessions(limit: int = 20):
     """列出最近的 sessions"""

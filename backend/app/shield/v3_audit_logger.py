@@ -65,12 +65,17 @@ class V3AuditLogger:
         }
 
     def verify_chain(self) -> bool:
-        """验证链完整性（哈希连续性）"""
+        """验证链完整性：哈希连续性 **且** 每条记录内容未被篡改。
+
+        旧实现只比对 ``previous_hash`` 链条，从不重算 ``record_hash``，
+        因此篡改某条记录的 ``data`` 后依然返回 True —— 防篡改承诺是假的。
+        现在同时重算每条记录的哈希并与其存储值比对。
+        """
         for i, record in enumerate(self.records):
-            if i == 0:
-                if record["previous_hash"] != "0" * 64:
-                    return False
-            else:
-                if record["previous_hash"] != self.records[i - 1]["record_hash"]:
-                    return False
+            expected_previous = "0" * 64 if i == 0 else self.records[i - 1]["record_hash"]
+            if record["previous_hash"] != expected_previous:
+                return False
+            # 内容完整性：重算哈希，任何字段被改动都会失配。
+            if self._compute_hash(record) != record["record_hash"]:
+                return False
         return True
