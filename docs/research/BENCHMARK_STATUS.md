@@ -52,6 +52,16 @@ inconsistent with the payload".
    `RiskSignalExtractor` only reads `tool_name` and `tool_input`. This is why
    BLOCK fires zero times on both external sets.
 
+   Investigated further and this is **not closeable without label leakage**:
+   for a given AgentDojo sample, the malicious and benign variants share the
+   same final tool call — identical `tool_name` and identical `tool_input`.
+   The only separating field is `injection_goal`, which is empty for benign
+   samples and non-empty for attacks (85.8% of attack goals contain an email
+   address; 0% of benign prompts do). Feeding that in would trivially score
+   ~100% and would be pure leakage. AgentDojo's attack requires injected text
+   to appear in a *previous* tool output and be read by the next LLM turn,
+   which is outside a single-event governance point.
+
 2. *The 100-case set and the engine's architecture disagree on 14 cases.* All
    `behavior_chain_risk` items use the tool name `multi_step_action` with the
    whole chain packed into one call's parameters (`{"steps": [...]}`). Chain
@@ -91,3 +101,28 @@ external set, with the before/after recorded here.
 
 If a future change reintroduces leakage, those tests fail rather than the
 paper quietly inheriting a fake number.
+
+## Chain-level evaluation (`benchmark/evaluate_chain.py`)
+
+Added to measure what the flat harness cannot: risk propagating across calls.
+It replays a fixture's steps as separate tool calls joined by
+`parent_node_id`, so `AgentBehaviorGraph` gets real edges. Seeded with
+`risk_score=0.0`; labels are used only afterwards.
+
+The mechanism works — replaying a chain produces the intended graph shape
+(`nodes == steps`, `edges == nodes - 1`), and propagation fires: on V3-060 the
+last node inherits 0.72 from upstream and is flagged as an amplifier.
+
+Accuracy on the six `multi_step_action` cases is **0/6**, and this is left as
+is rather than tuned away. Every one of those cases is labelled BLOCK with an
+expected score of 0.94–0.99, but the payloads are short snake_case stage names
+(`check_balance`, `withdraw_1000`, `phish_employee`). The engine tops out at
+0.85 → HUMAN_REVIEW, which is a defensible verdict for `SELECT phone FROM
+customers`; pushing every case to BLOCK would mean inflating weights until the
+fixture passes, which is the same failure mode as before.
+
+Generic offensive-security vocabulary was added to the content scorer
+(`phish`, `exfil`, `reverse_shell`, `lateral_movement`, `prompt_injection`, …)
+because those are recognised attack stages any reviewer would flag. Payloads
+that merely name a *target* — `withdraw_1000`, `check_balance` — were
+deliberately **not** added: scoring those is fixture-fitting, not detection.
