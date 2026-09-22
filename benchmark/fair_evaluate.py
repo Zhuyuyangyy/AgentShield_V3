@@ -11,9 +11,17 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_BACKEND = Path(__file__).resolve().parents[1] / "backend"
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 from app.shield.schemas import ObservedToolEvent, HiddenGroundTruth, event_from_dict, ground_truth_from_dict
 from benchmark.strong_baselines import Baseline, get_baseline, ALL_BASELINES
@@ -191,6 +199,11 @@ def run_fair_evaluation(
     for name in baseline_names:
         print(f"Evaluating baseline: {name}...")
         baseline = get_baseline(name)
+        # A production-path baseline carries engine state between calls; reset
+        # it so each event is scored independently rather than inheriting the
+        # behavior graph of everything before it.
+        if hasattr(baseline, "reset"):
+            baseline.reset()
         eval_result = evaluate_baseline(baseline, events, ground_truths, dataset_name)
         results.append(eval_result)
         print(f"  Accuracy: {eval_result.accuracy:.4f}, Macro F1: {eval_result.macro_f1:.4f}")

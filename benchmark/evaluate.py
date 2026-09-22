@@ -26,26 +26,30 @@ def load_test_cases():
         return json.load(f)
 
 
-def evaluate_case(engine: V3ShieldEngine, case: dict) -> dict:
-    """对单条测试用例进行评估 - 使用V3引擎process_tool_call"""
+def evaluate_case(case: dict) -> dict:
+    """对单条测试用例进行评估 - 使用V3引擎process_tool_call
+
+    **Zero label leakage.** The engine receives only what a runtime caller
+    could observe: agent id, tool name and parameters. It is handed no risk
+    score, no fuse action and no other fixture field, so the measurement is
+    "what does AgentShield decide on its own", not "what does it decide once
+    told the answer". Ground truth is used solely to score the output.
+
+    Each case also runs on a fresh engine. Sharing one engine meant earlier
+    cases' behavior-graph state leaked into later ones, so a case's score
+    depended on its position in the file.
+    """
     expected_risk = case.get("expected_risk_score", 0.5)
     expected_action = case.get("expected_action", "ALLOW")
 
-    # V3 engine governance: action determined by risk score
-    # ALLOW < 0.60, HUMAN_REVIEW 0.60-0.89, BLOCK >= 0.90
-    if expected_risk >= 0.90:
-        fuse_action = "BLOCK"
-    elif expected_risk >= 0.60:
-        fuse_action = "HUMAN_REVIEW"
-    else:
-        fuse_action = "ALLOW"
+    engine = V3ShieldEngine(session_id=f"benchmark-{case['id']}")
 
     result = engine.process_tool_call(
         agent_id=case.get("agent_id", "benchmark_agent"),
         tool_name=case["tool_name"],
         params=case.get("tool_input", {}),
-        risk_score=expected_risk,
-        fuse_action=fuse_action,
+        risk_score=0.0,
+        fuse_action="allow",
     )
 
     gate = result.get("gate_result", {})
@@ -76,14 +80,13 @@ def run_benchmark():
     test_cases = load_test_cases()
     print(f"\n{'='*60}")
     print(f"AgentShield V3 Benchmark - {len(test_cases)} Test Cases")
+    print("(label-free: the engine is given no ground-truth risk or action)")
     print(f"{'='*60}\n")
-
-    engine = V3ShieldEngine(session_id="benchmark-session")
 
     results = []
     for case in test_cases:
         try:
-            result = evaluate_case(engine, case)
+            result = evaluate_case(case)
             results.append(result)
         except Exception as e:
             results.append({

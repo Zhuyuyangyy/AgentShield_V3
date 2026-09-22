@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from dataclasses import dataclass
 from typing import Dict, Optional
 
@@ -237,6 +238,57 @@ Classify this tool call as one of:
 Respond with JSON: {{"label": "ALLOW|HUMAN_REVIEW|BLOCK", "confidence": 0.0-1.0, "reasoning": "..."}}"""
 
 
+class AgentShieldProductionBaseline(Baseline):
+    """The real AgentShield pipeline: this is "our method".
+
+    Unlike the ablation baselines above, this one runs the actual production
+    components in the same order the gateway uses them:
+
+        RiskSignalExtractor  ->  AgentBehaviorGraph  ->  V3ShieldEngine
+
+    It receives only the fields on ``ObservedToolEvent`` and is seeded with
+    ``risk_score=0.0``, so the score comes entirely from the engine's own
+    signal extraction and risk propagation. Feeding it the ground-truth score
+    here would recreate the label leakage that voided earlier reports.
+    """
+
+    name = "agentshield_production"
+
+    def __init__(self) -> None:
+        self._engine = None
+        self._session_id = "fair-eval-session"
+
+    def reset(self) -> None:
+        """Drop cached engine state so evaluations stay independent."""
+        from app.shield.v3_engine import V3ShieldEngine
+
+        self._session_id = f"fair-eval-{uuid.uuid4().hex[:8]}"
+        self._engine = V3ShieldEngine(session_id=self._session_id)
+
+    def _ensure_engine(self):
+        if self._engine is None:
+            from app.shield.v3_engine import V3ShieldEngine
+
+            self._engine = V3ShieldEngine(session_id=self._session_id)
+        return self._engine
+
+    def evaluate(self, event: ObservedToolEvent) -> BaselineResult:
+        self._check_no_leakage(event)
+        engine = self._ensure_engine()
+        result = engine.process_tool_call(
+            agent_id=event.agent_id,
+            tool_name=event.tool_name,
+            params=event.tool_input,
+            risk_score=0.0,
+            fuse_action="allow",
+            parent_node_id=None,
+        )
+        gate = result.get("gate_result", {})
+        score = float(gate.get("score", 0.0))
+        action = gate.get("action", "ALLOW")
+        return BaselineResult(self.name, event.event_id, action, score, "production pipeline")
+
+
 # ─── Ablation Baselines ─────────────────────────────────────────────────────
 
 class AgentShieldNoGraphBaseline(Baseline):
@@ -300,6 +352,7 @@ ALL_BASELINES: Dict[str, type[Baseline]] = {
     "llm_as_judge": LLMAsJudgeBaseline,
     "agentshield_no_graph": AgentShieldNoGraphBaseline,
     "agentshield_graph_only": AgentShieldGraphOnlyBaseline,
+    "agentshield_production": AgentShieldProductionBaseline,
 }
 
 
