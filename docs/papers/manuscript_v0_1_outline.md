@@ -1,5 +1,15 @@
 # AgentShield: Behavior-Chain Risk Governance for Multi-Agent Tool-Use Systems
 
+> [!WARNING]
+> **Unverified figures.** This document carries benchmark numbers (notably
+> 75.33% action accuracy / 84.79% BLOCK recall on SCI-600) that could not be
+> traced to any result artifact and are not reproducible on the current,
+> label-free harness -- the same harness that previously reported them was
+> feeding ground-truth scores into the engine. Current reproducible values are
+> in `docs/research/BENCHMARK_STATUS.md` (SCI-600 production pipeline: 43.50%
+> action accuracy, 31.34% BLOCK recall). **Do not cite these tables in a filing
+> or submission until they are regenerated.**
+
 ## Manuscript v0.1 Outline
 
 ---

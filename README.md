@@ -222,32 +222,44 @@ AgentShield_V3/
 
 ## Benchmarks & Results
 
-### SCI-600 Dataset (600 synthetic cases)
+> **Read [`docs/research/BENCHMARK_STATUS.md`](docs/research/BENCHMARK_STATUS.md) first.**
+> SCI-600 and the semi-real trace set are generated and labelled by this
+> project; they are unit fixtures, not evidence of generalisation. The numbers
+> below are reproduced by `python benchmark/fair_evaluate.py` on a label-free
+> harness. Earlier README revisions quoted 75.33% action accuracy and 84.79%
+> BLOCK recall that appear in no result artifact and could not be reproduced.
 
-| Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
-|--------|------------|----------|-------------|-------------|-------------|
-| Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% |
-| Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% |
-| Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% |
-| **AgentShield chain-aware** | **75.33%** | **72.61%** | **84.79%** | **0.00%** | **6.40%** |
-
-### Semi-Real Trace Dataset (150 traces, 405 steps)
-
-| Method | Action Acc. | Macro F1 | BLOCK Recall | False Allow | False Block |
-|--------|------------|----------|-------------|-------------|-------------|
-| Tool-name rules | 33.33% | 17.09% | 0.00% | 91.67% | 0.00% |
-| Content keywords | 33.33% | 19.61% | 0.00% | 50.00% | 0.00% |
-| Local context | 66.67% | 63.37% | 16.67% | 0.00% | 0.00% |
-| **AgentShield chain-aware** | **76.67%** | **75.11%** | **75.00%** | **0.00%** | **0.00%** |
-
-### Ablation Study (SCI-600)
+### SCI-600 Dataset (600 synthetic cases, self-labelled)
 
 | Method | Action Acc. | Macro F1 | BLOCK Recall |
 |--------|------------|----------|-------------|
-| Full AgentShield | 75.33% | 72.61% | 84.79% |
-| - stage boost | 75.83% | 73.35% | 84.79% |
-| - category x chain boost | 75.83% | 73.35% | 84.79% |
-| - external+sensitive boost | 75.33% | 72.61% | 84.79% |
+| Tool-name rules | 29.17% | 28.15% | 14.29% |
+| Content keywords | 49.00% | 48.70% | 44.70% |
+| Local context | 29.83% | 24.42% | 0.00% |
+| LLM-as-Judge | 25.17% | 18.08% | 0.00% |
+| **AgentShield (production pipeline)** | **43.50%** | **42.98%** | **31.34%** |
+
+### External benchmarks (labelled by their authors)
+
+These are the only measurements where the labels were not produced here. See
+`BENCHMARK_STATUS.md` for why AgentDojo and AgentHarm cannot be improved
+without label leakage.
+
+| Dataset | Samples | Attack recall | Benign FPR | BLOCK fired |
+|---------|---------|---------------|------------|-------------|
+| AgentDojo (`benchmark/external_experiment.py`) | 2,000 | 82.0% | 26.2% | 0 |
+| AgentHarm (`benchmark/external_experiment.py`) | 208 | 28.8% | n/a (all harmful) | 0 |
+
+`BLOCK fired = 0` is the open problem, not a rounding artefact: the
+signal extractor only reads `tool_name` and `tool_input`, and on both external
+sets the malicious and benign variants of a sample share those fields exactly.
+
+### Ablation Study
+
+Not currently reported. The previous ablation table was produced on the
+pre-fix harness (which told the engine the ground-truth score) and its deltas
+are void; it must be regenerated from `benchmark/paper_experiments.py` once the
+harness is trusted.
 | - audit/evasion boosts | 75.17% | 72.60% | 79.26% |
 | - special-case rules | 51.33% | 47.78% | 84.79% |
 | Local context (all chain) | 62.67% | 60.98% | 76.96% |

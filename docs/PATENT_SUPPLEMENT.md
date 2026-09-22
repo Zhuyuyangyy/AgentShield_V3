@@ -1,5 +1,15 @@
 # AgentShield V3 专利技术交底书补充材料
 
+> [!WARNING]
+> **Unverified figures.** This document carries benchmark numbers (notably
+> 75.33% action accuracy / 84.79% BLOCK recall on SCI-600) that could not be
+> traced to any result artifact and are not reproducible on the current,
+> label-free harness -- the same harness that previously reported them was
+> feeding ground-truth scores into the engine. Current reproducible values are
+> in `docs/research/BENCHMARK_STATUS.md` (SCI-600 production pipeline: 43.50%
+> action accuracy, 31.34% BLOCK recall). **Do not cite these tables in a filing
+> or submission until they are regenerated.**
+
 **文档类型**: 专利技术交底书补充材料 (实验验证部分)
 **关联专利**: AgentShield 行为链风险治理系统
 **版本**: v1.0
