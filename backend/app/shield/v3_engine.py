@@ -238,13 +238,18 @@ class V3ShieldEngine:
             graph_path_risk=graph_path,
         )
 
-        # Use computed risk, with backward-compatible fallback
+        # Combine the engine's own signal-derived risk with any externally
+        # supplied score.
+        #
+        # Taking the weighted blend (0.6 * computed + 0.4 * supplied) dragged
+        # every score toward the middle: a caller that already knew a call was
+        # critical and passed 0.95 still came out under the BLOCK threshold
+        # whenever the local signal was weak. The two estimates are independent
+        # evidence of the same thing, so the stronger one governs -- an
+        # external score can only ever raise the result, never dilute it.
         computed_risk = self._graph_risk_state.combined_risk
-        if risk_score > 0:
-            # Backward compatibility: blend external score with computed score
-            final_risk = 0.6 * computed_risk + 0.4 * risk_score
-        else:
-            final_risk = computed_risk
+        supplied = max(0.0, min(float(risk_score), 1.0))
+        final_risk = max(computed_risk, supplied)
 
         final_risk = max(0.0, min(float(final_risk), 1.0))
 

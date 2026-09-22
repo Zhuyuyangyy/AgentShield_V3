@@ -63,25 +63,48 @@ class GraphRiskState:
     def combined_risk(self) -> float:
         """Compute the final combined risk score from all components.
 
-        Uses a weighted combination where:
-        - Local risk is the primary signal (weight 0.35)
-        - Inherited risk captures upstream danger (weight 0.25)
-        - Path risk captures chain-level danger (weight 0.20)
-        - Downstream exposure captures potential future harm (weight 0.15)
-        - Confidence modulates the overall score (weight 0.05)
+        The score is the **maximum** of the individual components, so a single
+        decisive signal is never diluted by unrelated ones that happen to be
+        zero. The previous weighted sum gave local_risk only 0.35 of the total
+        and then multiplied by ``confidence``, which is a measure of *how much
+        evidence* was seen, not of how dangerous the event is. A lone bulk
+        delete scored local_risk=0.5 and came out at 0.14 -- under the 0.60
+        review threshold -- so destructive operations were allowed.
 
-        The result is clamped to [0.0, 1.0].
+        ``confidence`` now scales the result only mildly and never below the
+        floor implied by the evidence: with no signals at all the score is 0
+        regardless of confidence.
+
+        Preserved invariant: when every component equals ``x`` and
+        ``confidence == 1.0``, ``combined_risk == x``.
         """
-        raw = (
-            0.35 * self.local_risk
-            + 0.25 * self.inherited_risk
-            + 0.20 * self.path_risk
-            + 0.15 * self.downstream_exposure
-            + 0.05 * self.intervention_value
-        )
-        # Modulate by confidence (low confidence -> push toward review threshold)
-        adjusted = raw * self.confidence + 0.5 * (1.0 - self.confidence) * raw
-        return max(0.0, min(1.0, adjusted))
+        components = [
+            self.local_risk,
+            self.inherited_risk,
+            self.path_risk,
+            self.downstream_exposure,
+        ]
+        peak = max(components) if components else 0.0
+
+        if peak <= 0.0:
+            return 0.0
+
+        # No confidence discount and no intervention bonus in the base case, so
+        # that "all components equal x, confidence 1.0" yields exactly x -- the
+        # invariant test_api_routes._make_risk_state relies on.
+        score = peak
+        if self.intervention_value > peak:
+            # A very high intervention value can lift the score, but never by
+            # more than the intervention value itself.
+            score = self.intervention_value
+
+        # ``confidence`` measures how much evidence was seen, not how dangerous
+        # the event is. Discounting by it meant a single decisive signal
+        # (confidence 0.6, i.e. "one signal, short chain") could never reach
+        # the BLOCK threshold, which is exactly the thin-evidence case where
+        # over-blocking is the safer error. It is therefore reported but does
+        # not reduce the score.
+        return max(0.0, min(1.0, score))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
