@@ -90,17 +90,58 @@ def load_agentdojo(max_samples: int = 0) -> List[Dict[str, Any]]:
     return cases
 
 
+def _load_agentharm_arrow(split: str) -> List[Dict[str, Any]]:
+    """Read AgentHarm straight from the cached Arrow file.
+
+    ``load_dataset`` fails on the published dataset_info.json with datasets
+    3.6.0: the features block declares a ``List`` type that the library no
+    longer recognises ("Feature type 'List' not found"), and the error escapes
+    before any row is produced. Both splits therefore loaded zero rows and
+    every AgentHarm number ever reported was vacuous.
+
+    Reading the Arrow file directly sidesteps the metadata parse entirely.
+    """
+    import pyarrow as pa
+
+    matches = sorted(CACHE.rglob(f"agent_harm-{split}.arrow"))
+    if not matches:
+        return []
+
+    rows: List[Dict[str, Any]] = []
+    for path in matches:
+        table = pa.ipc.open_stream(pa.memory_map(str(path), "r")).read_all()
+        columns = {name: table.column(name).to_pylist() for name in table.column_names}
+        for i in range(table.num_rows):
+            rows.append({name: values[i] for name, values in columns.items()})
+    return rows
+
+
+def _load_agentharm_rows(split: str) -> List[Dict[str, Any]]:
+    """Load AgentHarm rows via datasets, falling back to raw Arrow."""
+    try:
+        from datasets import load_dataset
+
+        ds = load_dataset(
+            "ai-safety-institute/AgentHarm",
+            "harmful",
+            split=split,
+            cache_dir=str(CACHE),
+        )
+        return [dict(row) for row in ds]
+    except Exception as e:
+        log.warning(
+            "AgentHarm %s: datasets loader failed (%s); reading Arrow directly",
+            split,
+            type(e).__name__,
+        )
+        return _load_agentharm_arrow(split)
+
+
 def load_agentharm(max_samples: int = 0) -> List[Dict[str, Any]]:
-    from datasets import load_dataset
     cases: List[Dict[str, Any]] = []
     for split in ["test_public", "validation"]:
         try:
-            ds = load_dataset(
-                "ai-safety-institute/AgentHarm",
-                "harmful",
-                split=split,
-                cache_dir=str(CACHE),
-            )
+            ds = _load_agentharm_rows(split)
         except Exception as e:
             log.warning("AgentHarm %s load failed: %s", split, e)
             continue
