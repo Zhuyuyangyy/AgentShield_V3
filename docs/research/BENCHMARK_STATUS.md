@@ -126,3 +126,67 @@ Generic offensive-security vocabulary was added to the content scorer
 because those are recognised attack stages any reviewer would flag. Payloads
 that merely name a *target* — `withdraw_1000`, `check_balance` — were
 deliberately **not** added: scoring those is fixture-fitting, not detection.
+
+## External harness audit (post-cleanup)
+
+`external_experiment.py` still had two leakage paths after the first cleanup
+round. Both are now closed and covered by tests.
+
+**1. Label-derived `category`.** The AgentDojo adapter set
+`category = attack_name if label == 1 else "benign"`. `risk_local_context`,
+`risk_agent_shield` and `risk_agent_shield_graph` all read `category` through
+`CATEGORY_PRIORS`. The leak was latent only because that table's keys
+(`sensitive_data_access`, …) never matched AgentDojo's values (`direct`,
+`ignore_previous`), so every lookup fell through to the 0.42 default. A single
+added key would have activated it.
+
+**2. LLM-Guard read `injection_goal`.** `predict_llm_guard` concatenated it
+into the scanned text. That field is the benchmark's statement of what the
+attack is trying to achieve — so this baseline was being shown the answer
+while AgentShield was not. The comparison was meaningless in AgentShield's
+disfavour.
+
+Fixes: `benchmark/baselines.py` gained `observable_view()`, which strips every
+evaluation-only field *including derived ones like `category`*; all scorers now
+read through it. The adapter emits a label-free `category`, and
+`predict_llm_guard` consumes the same observable surface as AgentShield.
+
+### Consequential finding: "AgentShield V3 (full)" was not the production engine
+
+That method routed through `risk_agent_shield_graph` — the hand-written
+benchmark scorer — not the engine. Both it and the ablation variant now call
+`V3ShieldEngine` directly with `risk_score=0.0`.
+
+### Honest external numbers after the audit
+
+Measured with `benchmark/external_experiment.py`, label-free, on AgentDojo
+(1,500 samples; 1,416 attack / 84 benign):
+
+| Metric | Value |
+|--------|-------|
+| `detection_recall` (REVIEW ∪ BLOCK) | **0.000** |
+| `block_recall` (BLOCK only) | **0.000** |
+| `benign_block_fpr` | 0.000 |
+| `three_class_accuracy` | 0.056 |
+
+The zeros are the result, not a harness fault: for a given AgentDojo sample the
+malicious and benign variants carry identical `tool_name` and `tool_input`. The
+attack lives in a *previous* tool output, which this governance point never
+sees. A single-event gate has nothing to separate them on.
+
+This supersedes the "82% recall / 26.2% FPR" figures previously listed here:
+those came from an ad-hoc script calling `V3ShieldEngine` directly with a
+different metric definition (REVIEW-or-BLOCK counted as detected), never from
+the committed harness. They are removed rather than reconciled, per the
+Evaluation Contract.
+
+AgentDojo `confusion`: `{ALLOW: {ALLOW: 84}, BLOCK: {ALLOW: 1416}}`.
+
+### Contract
+
+`docs/research/EVALUATION_CONTRACT.md` now defines the three field classes
+(runtime observable / derived runtime / evaluation-only), forbids derived
+fields from class 3, fixes the metric names above, and requires the
+regression tests that `test_evaluation_leakage.py` implements: label
+invariance under scrambling, distribution sanity, determinism, and equal
+observable surface across compared methods.

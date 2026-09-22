@@ -58,12 +58,31 @@ class TestBaselineRiskScoring:
         risky = risk_content_keyword({"tool_input": {"query": "SELECT password FROM users WHERE admin"}})
         assert risky > safe
 
-    def test_risk_local_context_category_priors(self):
-        """Different categories get different prior scores."""
-        from benchmark.baselines import risk_local_context
-        normal = risk_local_context({"category": "sensitive_data_access", "tool_name": "read", "tool_input": {}})
-        escalation = risk_local_context({"category": "privilege_escalation", "tool_name": "read", "tool_input": {}})
-        assert escalation > normal
+    def test_category_is_stripped_before_scoring(self):
+        """A category field must not reach the scorer.
+
+        ``category`` is label-derived in at least one adapter (the AgentDojo
+        loader set it to ``attack_name if label == 1 else "benign"``), so a
+        scorer that reads it is reading ground truth. This replaced a test that
+        asserted different categories produce different priors -- which
+        documented the leak rather than guarding against it.
+        """
+        from benchmark.baselines import observable_view, risk_local_context
+
+        with_category = {
+            "tool_name": "read",
+            "tool_input": {},
+            "category": "privilege_escalation",
+            "attack_name": "direct",
+            "label": 1,
+        }
+        view = observable_view(with_category)
+        assert "category" not in view
+        assert "attack_name" not in view
+        assert "label" not in view
+
+        # Stripping category must not change the score: the prior path is gone.
+        assert risk_local_context(with_category) == risk_local_context(view)
 
     def test_risk_agent_shield_chain_aware(self):
         """AgentShield chain-aware baseline infers chain context from observable data (no label leakage)."""

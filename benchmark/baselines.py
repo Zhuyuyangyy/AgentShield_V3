@@ -63,6 +63,67 @@ HIGH_RISK_TERMS = {
     "users": 0.14,
 }
 
+# ─── Label isolation ────────────────────────────────────────────────────────
+# Benchmark metadata that must never reach a predictor. Anything here is either
+# a label, a grading field, or derived from one. Detectors see only what a
+# runtime caller could observe.
+FORBIDDEN_CASE_FIELDS = frozenset({
+    "label",
+    "expected_label",
+    "expected_action",
+    "expected_risk_score",
+    "attack_stage",
+    "attack_name",
+    "injection_goal",
+    "injection_task_id",
+    "target_functions",
+    "grading_function",
+    "chain_id",
+    "step_index",
+    "rationale",
+    "v3_specific",
+    "v3_standard_action",
+    # Derived from label==1 in the AgentDojo adapter.
+    "category",
+})
+
+
+def observable_view(case):
+    """Return a copy of ``case`` containing only runtime-observable fields.
+
+    Scorers in this module must consume this rather than the raw fixture dict.
+    ``category`` is stripped because at least one adapter derives it from the
+    ground-truth label (``attack_name if label == 1 else "benign"``), which
+    makes any category prior an indirect label leak -- even when the specific
+    prior table happens not to match the values in play.
+    """
+    return {k: v for k, v in case.items() if k not in FORBIDDEN_CASE_FIELDS}
+
+
+# ─── Label isolation ────────────────────────────────────────────────────
+# Benchmark metadata that must never reach a predictor: labels, grading
+# fields, and anything derived from them.
+FORBIDDEN_CASE_FIELDS = frozenset({
+    "label",
+    "expected_label",
+    "expected_action",
+    "expected_risk_score",
+    "attack_stage",
+    "attack_name",
+    "injection_goal",
+    "injection_task_id",
+    "target_functions",
+    "grading_function",
+    "chain_id",
+    "step_index",
+    "rationale",
+    "v3_specific",
+    "v3_standard_action",
+    # Label-derived in the AgentDojo adapter.
+    "category",
+})
+
+
 CATEGORY_PRIORS = {
     "sensitive_data_access": 0.48,
     "external_network_transfer": 0.50,
@@ -205,7 +266,6 @@ def _infer_graph_risk(case: Dict[str, Any]) -> float:
         from app.shield.agent_behavior_graph import AgentBehaviorGraph
 
         graph = AgentBehaviorGraph(session_id="benchmark_inference")
-        case.get("category", "")
         tool_name = case.get("tool_name", "")
         tool_input = case.get("tool_input", {})
         local_score = risk_local_context(case)
@@ -304,7 +364,9 @@ def risk_content_keyword(case: Dict[str, Any]) -> float:
 
 
 def risk_local_context(case: Dict[str, Any]) -> float:
-    category = case.get("category", "")
+    # ``category`` is label-derived in at least one adapter, so read it only
+    # through the observable view (which strips it).
+    category = observable_view(case).get("category", "")
     text = f"{case.get('tool_name', '')} {flatten_text(case.get('tool_input', {}))}"
     prior = CATEGORY_PRIORS.get(category, 0.42)
     return clamp(prior + keyword_score(text, cap=0.38) + row_intensity(case))
@@ -317,7 +379,7 @@ def risk_agent_shield(case: Dict[str, Any]) -> float:
     Instead, it infers chain context from tool names, tool inputs, and category.
     """
     score = risk_local_context(case)
-    category = case.get("category", "")
+    category = observable_view(case).get("category", "")
     text = flatten_text(case.get("tool_input", {})).lower()
     tool_name = str(case.get("tool_name", "")).lower()
     full_context = f"{tool_name} {text}"
@@ -392,7 +454,7 @@ def risk_llm_as_judge(case: Dict[str, Any]) -> float:
     without any graph-based reasoning.
     """
     tool_name = str(case.get("tool_name", "")).lower()
-    category = case.get("category", "")
+    category = observable_view(case).get("category", "")
     text = flatten_text(case.get("tool_input", {})).lower()
     full_context = f"{tool_name} {text}"
 

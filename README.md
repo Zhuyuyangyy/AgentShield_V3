@@ -6,7 +6,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
-![Tests](https://img.shields.io/badge/Tests-242%20passed-brightgreen)
+[![CI](https://github.com/Zhuyuyangyy/AgentShield_V3/actions/workflows/ci.yml/badge.svg)](https://github.com/Zhuyuyangyy/AgentShield_V3/actions/workflows/ci.yml)
 
 ## Overview
 
@@ -247,22 +247,45 @@ without label leakage.
 
 | Dataset | Samples | Attack recall | Benign FPR | BLOCK fired |
 |---------|---------|---------------|------------|-------------|
-| AgentDojo (`benchmark/external_experiment.py`) | 2,000 | 82.0% | 26.2% | 0 |
-| AgentHarm (`benchmark/external_experiment.py`) | 208 | 28.8% | n/a (all harmful) | 0 |
+### External benchmarks (labelled by their authors, now label-free)
 
-`BLOCK fired = 0` is the open problem, not a rounding artefact: the
-signal extractor only reads `tool_name` and `tool_input`, and on both external
-sets the malicious and benign variants of a sample share those fields exactly.
+Reproduced with `benchmark/external_experiment.py` after removing the two
+leakage paths in it (a label-derived `category`, and `injection_goal` being
+fed to the LLM-Guard baseline). Metrics are the explicit ones defined in
+`docs/research/EVALUATION_CONTRACT.md`.
+
+**AgentDojo** (2,000 samples: 1,916 attack / 84 benign)
+
+| Metric | Value |
+|--------|-------|
+| detection_recall (REVIEW or BLOCK) | **0.000** |
+| block_recall (BLOCK only) | **0.000** |
+| benign_block_fpr | 0.000 |
+| three_class_accuracy | 0.056 |
+
+**AgentHarm-derived harmful-action proxy** (208 samples; see the proxy caveat
+in `BENCHMARK_STATUS.md`) — not yet re-measured on this harness revision.
+
+The zeros are the finding, not a bug in the measurement. For a given AgentDojo
+sample the malicious and benign variants carry **identical** `tool_name` and
+**identical** `tool_input` — the attack only exists in a prior tool output that
+the next LLM turn consumes. A single-event governance gate therefore has
+nothing to separate them on, which is exactly the motivation for the
+provenance/tool-output work described in `BENCHMARK_STATUS.md`.
+
+An earlier revision of this table showed "82% recall / 26.2% FPR". Those were
+measured directly against `V3ShieldEngine` in an ad-hoc script with a
+*different* metric definition (REVIEW-or-BLOCK counted as detected), never by
+the committed harness, and they are not comparable to the figures above. They
+have been removed rather than reconciled.
 
 ### Ablation Study
 
-Not currently reported. The previous ablation table was produced on the
-pre-fix harness (which told the engine the ground-truth score) and its deltas
-are void; it must be regenerated from `benchmark/paper_experiments.py` once the
-harness is trusted.
-| - audit/evasion boosts | 75.17% | 72.60% | 79.26% |
-| - special-case rules | 51.33% | 47.78% | 84.79% |
-| Local context (all chain) | 62.67% | 60.98% | 76.96% |
+Not currently reported. The previous table was produced on the pre-fix harness
+(which told the engine the ground-truth score), so its deltas are void. It must
+be regenerated from `benchmark/paper_experiments.py` once the harness is
+trusted — and the ablation must compare configurations of the *production*
+pipeline, not of the benchmark heuristic it used to route through.
 
 ### Running Benchmarks
 
