@@ -497,3 +497,72 @@ backend made one configuration's executions inflate another's counts.
 DeepSeek credit. The experiment is a behavioural probe, not a benchmark: with
 single-digit task counts no rate here is statistically meaningful, and none is
 reported as one.
+
+## The instruction detector did not generalise, and the numbers changed (stage J)
+
+A review made a fair charge: the instruction markers in `artifacts.py` were
+extended *after* looking at how the AgentDojo dump phrases its injections
+(`TODO:`, `IMPORTANT:`, `SYSTEM:`, imperative "Please <verb>"). That is not
+label leakage, but it is benchmark-informed feature engineering, and it means
+the Stage H result could not be read as evidence about the mechanism.
+
+Measured on the dump, the corpus-specific carriers account for **100%** of the
+detector's hits:
+
+```
+attack rows             13,574
+marker table hits       10,746 (79.2%)
+corpus-carrier hits     10,746 (79.2%)   <- all of them
+generic phrase hits          0 (0.0%)    <- "ignore previous instructions" etc.
+```
+
+So the Stage H "attack_trace_block = 1.000" was the marker table, not
+provenance. Two changes follow.
+
+**1. The markers are split and the corpus half is off by default.**
+`_GENERIC_MARKERS` are framing moves that read as instructions regardless of
+corpus. `_CORPUS_MARKERS` are the dump-specific carriers, now opt-in via
+`AGENTSHIELD_ENABLE_CORPUS_MARKERS` so a headline number cannot silently rest
+on them. `benchmark/held_out_generalisation.py` evaluates the detector frozen
+on 9 held-out injection styles (roleplay framing, indirect third-person asks,
+tool-syntax fragments, base64, zero-width smuggling) plus 6 benign controls:
+
+```
+attack recall (frozen detector)   0/9  = 0.0%
+benign false positives            0/6
+destinations recovered            5/7
+```
+
+Zero recall on a differently-phrased idiom is the honest result, and it is
+reported rather than tuned away. It is the argument for replacing string
+markers with an instruction/data classifier, not for extending the list.
+
+**2. Trust is no longer derived from content.** The older
+`native_trace_replay.py` harness set trust from whether the response contained
+instruction-like text, which made the trust policy a function of the detector's
+own output -- and, with corpus-informed markers, a function of the corpus. Both
+harnesses now assign `untrusted` unconditionally. Trust must come from
+tool/source semantics frozen before results are seen.
+
+### Stage H results, restated with the frozen detector
+
+Re-run of `agentdojo_trace_replay.py` with corpus markers off (97 benign
+trajectories / 339 steps; attack sample of 400 trajectories):
+
+| Configuration | attack_trace_block | benign_trace_block |
+|---|---|---|
+| local_only | 0.000 | 1.0% |
+| + untrusted output inspection | 0.035 | 19.6% |
+| + entity provenance / taint | **0.160** | 41.2% |
+| + intent consistency | 0.160 | 41.2% |
+
+**The 1.000 previously reported for this experiment is withdrawn.** With the
+marker table out of the picture, provenance raises attack-trace blocking from
+0.035 to 0.160 while raising benign-trace blocking from 19.6% to 41.2%. The
+trade-off is now visible in both directions, and the open problem is sharper
+than before: the mechanism does carry signal, and it is not yet separable from
+ordinary retrieved content.
+
+What survives unchanged: `local_only` still detects almost nothing (0.035),
+which is the observability-gap claim; benign block rates are identical because
+trust policy was already all-untrusted; and governance latency is unaffected.

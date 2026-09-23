@@ -160,16 +160,17 @@ def replay_task(
 def _trust_for(step: Dict[str, Any]) -> str:
     """Trust level for a recorded response.
 
-    A tool response is untrusted when it carries content the agent should treat
-    as data rather than instruction -- here, text that directs the agent to act.
-    This is derived from the response text itself, never from a label.
+    Always ``untrusted``. An earlier revision derived trust from whether the
+    response contained instruction-like text, which made the trust policy
+    depend on the detector's own output -- and, once the instruction markers
+    were corpus-informed, made it depend on the corpus. Trust must come from
+    the tool/source semantics (frozen before results are seen), never from the
+    content being screened or from a label.
     """
-    from app.shield.artifacts import looks_like_instruction
-
     response = str(step.get("tool_response", "") or "")
     if not response:
         return "unknown"
-    return "untrusted" if looks_like_instruction(response) else "trusted"
+    return "untrusted"
 
 
 # ─── Configurations ────────────────────────────────────────────────────────

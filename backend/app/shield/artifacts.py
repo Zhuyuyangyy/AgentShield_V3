@@ -61,7 +61,22 @@ _PATH_RE = re.compile(r"(?:/[\w.-]+){2,}/?|~\/[\w.-]+|[A-Za-z]:\\[\w\\.-]+")
 _CMD_FLAG_RE = re.compile(r"(?<![\w-])--?[A-Za-z][\w-]*")
 
 # Commands whose appearance in untrusted text is itself the signal.
-_INJECTION_MARKERS = (
+#
+# This table is deliberately split in two, because part of it is
+# corpus-informed and must not be mistaken for a general capability.
+#
+# _GENERIC_MARKERS are framing moves that read as an instruction to the agent
+# regardless of the corpus: a policy override, a role imposition, an authority
+# claim. These are the ones the detector stands on.
+#
+# _CORPUS_MARKERS are phrasing shortcuts observed in one specific benchmark's
+# dumps ("TODO:", "IMPORTANT:", "SYSTEM:"). Measured on that corpus they
+# account for 100% of the detector's hits -- 10,746 of 13,574 rows -- while the
+# generic markers fire on zero of them. They are therefore OFF by default and
+# only enabled when explicitly opted in, so a headline number cannot silently
+# rest on them. See benchmark/held_out_generalisation.py: with the detector
+# frozen, attack recall on a differently-phrased held-out set is 0%.
+_GENERIC_MARKERS = (
     # Direct policy overrides.
     "ignore previous instructions",
     "ignore all previous",
@@ -71,10 +86,12 @@ _INJECTION_MARKERS = (
     "system instruction",
     "new instruction",
     "instead of that",
-    # Authority / urgency framing -- the carrier used most often in real
-    # corpora. AgentDojo's dumps mark injected text with TODO:, IMPORTANT:,
-    # SYSTEM: and an imperative "Please <verb>"; none of the override phrases
-    # above fire on those, which is why they belong here explicitly.
+    "bypass",
+    "override",
+)
+
+# Corpus-specific carriers, opt-in only.
+_CORPUS_MARKERS = (
     "urgent:",
     "important:",
     "important!",
@@ -83,9 +100,25 @@ _INJECTION_MARKERS = (
     "note to self",
     "system:",
     "[system]",
-    "bypass",
-    "override",
 )
+
+#: Env flag to re-enable corpus-specific carriers for corpus-local ablations.
+_CORPUS_MARKERS_ENV = "AGENTSHIELD_ENABLE_CORPUS_MARKERS"
+
+
+def corpus_markers_enabled() -> bool:
+    """True when corpus-specific carriers have been explicitly enabled."""
+    import os
+
+    return os.environ.get(_CORPUS_MARKERS_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def active_markers() -> tuple:
+    """The marker set actually in force (generic, plus corpus if opted in)."""
+    markers = _GENERIC_MARKERS
+    if corpus_markers_enabled():
+        markers = markers + _CORPUS_MARKERS
+    return markers
 
 
 def extract_entities(text: str) -> Set[str]:
@@ -116,7 +149,7 @@ def extract_entities(text: str) -> Set[str]:
 def looks_like_instruction(text: str) -> bool:
     """True when text reads as an instruction to the agent rather than data."""
     blob = str(text).lower()
-    return any(marker in blob for marker in _INJECTION_MARKERS)
+    return any(marker in blob for marker in active_markers())
 
 
 # ─── Artifact ───────────────────────────────────────────────────────────────
