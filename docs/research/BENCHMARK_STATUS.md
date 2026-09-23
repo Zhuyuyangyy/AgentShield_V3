@@ -349,3 +349,93 @@ its own note field.
 The paired counterfactual control remains the right evidence for "the same
 action, decided differently by source"; this run is the right evidence for
 "the attack lives in the tool output, not the call".
+
+## AgentDojo-derived logged-trace replay (stage H — main external experiment)
+
+`benchmark/agentdojo_trace_replay.py`. This is the tier that replaced the
+reconstructed experiment as the primary external result: it replays trajectories
+**actually recorded** in ``ffuuugor/agentdojo-dump``.
+
+### Grouping audit (why the earlier grouping was wrong)
+
+The dump has **no step index and no run id**. Grouping by
+``(suite, user_task_id, injection_task_id)`` alone produces 1,046 groups of which
+**949 mix multiple ``attack_name`` values** -- e.g. the group for
+``(workspace, user_task_0, injection_task_0)`` contains one step each from eleven
+different attack configurations. Those are not one execution. Adding
+``attack_name`` to the key yields 10,536 groups, **every one contiguous in the
+source file**, with no mixed label or mixed user prompt. Audit output per run:
+rows, trajectories, median/p95/max steps, duplicate step keys, and the exclusion
+counts for mixed-label / mixed-prompt / mixed-attack / non-contiguous groups.
+
+The previous run of this harness grouped without ``attack_name`` and therefore
+replayed 949 stitched trajectories; its numbers are superseded by this run.
+
+### Results — all benign trajectories (97 tasks / 339 steps) plus 60 attack
+
+| Configuration | attack_trace_block | benign_step_block | benign_trace_block |
+|---|---|---|---|
+| local_only | 0.000 | 0.29% (1/339) | 1.03% (1/97) |
+| + untrusted output inspection | 1.000 | **7.96%** (27/339) | **19.6%** (19/97) |
+| + entity provenance / taint | 1.000 | **19.5%** (66/339) | **41.2%** (40/97) |
+| + intent consistency | 1.000 | 19.5% (66/339) | 41.2% (40/97) |
+
+Cluster bootstrap (2000 draws, **trajectory** as the unit — steps within a
+trajectory are strongly correlated, so resampling rows would produce intervals
+that are far too narrow). From the 60/60 run:
+``benign_trace_block`` for ``plus_output_inspection`` = 0.100, 95% CI
+[0.033, 0.183]; for the provenance rungs = 0.367, 95% CI [0.250, 0.483].
+
+### The negative result, stated plainly
+
+Attack interception is total (every attack trajectory is blocked at every
+rung from ``+output inspection`` up), but **the cost of the all-untrusted trust
+policy is a high benign false-positive rate**: 19.6% of benign trajectories are
+blocked by output inspection and 41.2% by the provenance rungs.
+
+This is the honest shape of the trade-off, and it is not tuned away:
+
+* The trust policy cannot be derived from a label or from whether a response
+  contains injected text — that would leak. Treating every recorded response as
+  untrusted is the review-safe choice, and it is what produces this FPR.
+* ``local_only`` is the only rung with a low benign rate (1.03% of traces), and
+  it detects essentially nothing (0.000 attack traces blocked).
+
+So the useful statement is *not* "provenance improves detection at no cost". It
+is: **on logged traces the deciding signal is present in tool output, and the
+open problem is separating untrusted content from ordinary retrieved data —
+which needs a trust policy derived from tool semantics, frozen before results
+are seen.** That is the next experiment, not a weight adjustment.
+
+### Two replay modes
+
+``audit`` replays every recorded step, so a BLOCK does not truncate: coverage
+and signal attribution are measured over the whole logged trace. ``enforcement``
+stops at the first BLOCK and reports where the trajectory would have been cut.
+Neither is a post-intervention agent outcome — in both cases what follows a
+BLOCK in the log belongs to the undefended world.
+
+### Naming
+
+The traces come from ``ffuuugor/agentdojo-dump``, not from the ETH
+AgentDojo repository's own published namespace. The report and the JSON say
+"AgentDojo-derived logged-trace replay". **Not** "AgentDojo benchmark
+performance", **not** "attack success rate reduced by", **not** "benign utility
+preserved" — none of those three are measured here. No agent was re-run, no LLM
+was invoked.
+
+### Governance latency
+
+Per-call, measured around ``process_tool_call`` only (dataset loading, HF access
+and any model time are excluded): p50 0.27 ms, p95 0.63 ms, p99 3.99 ms over the
+sampled trajectories.
+
+### Permutation leakage check
+
+``RuntimeTraceObservation`` is a frozen dataclass built from
+(``user_task_prompt``, ``tool_call_function``, ``tool_call_args``,
+``tool_response``) only. ``EvaluationMetadata`` carries ``label``,
+``injection_goal``, ``injection_task_id`` and ``attack_name`` and is read only
+after a trajectory has been fully replayed. A test asserts none of
+``FORBIDDEN_TRACE_FIELDS`` is present on any step handed to a predictor, and
+permuting the metadata leaves every prediction bit-for-bit unchanged.

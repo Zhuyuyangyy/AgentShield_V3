@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import random
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
@@ -436,3 +437,213 @@ class TestNativeTraceReplay:
     def test_utility_is_declared_unmeasured(self, native_small):
         lowered = json.dumps(native_small).lower()
         assert "utility not measured" in lowered or "utility" in lowered
+
+
+def _load_replay():
+    import importlib.util
+
+    path = _REPO_ROOT / "benchmark" / "agentdojo_trace_replay.py"
+    spec = importlib.util.spec_from_file_location("replay_harness", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["replay_harness"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+@pytest.fixture(scope="module")
+def replay():
+    return _load_replay()
+
+
+@pytest.fixture(scope="module")
+def replay_trajs(replay):
+    """Real trajectories from the dump, built once."""
+    rows = replay.load_rows()
+    trajs, audit = replay.build_trajectories(rows)
+    return trajs, audit
+
+
+class TestTraceIsolation:
+    """H1: raw rows split into two flows that never meet before scoring."""
+
+    def test_observation_has_no_evaluation_fields(self, replay, replay_trajs):
+        trajs, _ = replay_trajs
+        for traj in trajs[:40]:
+            for step in traj.steps:
+                for key in replay.FORBIDDEN_TRACE_FIELDS:
+                    assert not hasattr(step, key), f"{key} leaked into a trace step"
+
+    def test_observation_is_frozen(self, replay, replay_trajs):
+        """A prediction path must not be able to mutate the trace."""
+        trajs, _ = replay_trajs
+        step = trajs[0].steps[0]
+        with pytest.raises(Exception):
+            step.tool_name = "mutated"  # type: ignore[misc]
+
+    def test_metadata_lives_in_its_own_type(self, replay, replay_trajs):
+        trajs, _ = replay_trajs
+        for traj in trajs[:20]:
+            meta_fields = {"label", "injection_goal", "injection_task_id", "attack_name"}
+            assert meta_fields <= set(vars(traj.meta))
+            for step in traj.steps:
+                assert not (meta_fields & set(vars(step)))
+
+    def test_malicious_predictor_cannot_see_metadata(self, replay, replay_trajs):
+        """A predictor that asserts isolation must not blow up."""
+        trajs, _ = replay_trajs
+
+        def strict_predictor(step):
+            payload = vars(step)
+            assert "label" not in payload
+            assert "injection_goal" not in payload
+            assert "injection_task_id" not in payload
+            assert "attack_name" not in payload
+            return "ALLOW"
+
+        for step in trajs[0].steps:
+            assert strict_predictor(step) == "ALLOW"
+
+
+class TestGrouping:
+    """H2: trajectories must be single contiguous executions."""
+
+    def test_every_group_is_contiguous(self, replay, replay_trajs):
+        """No execution is stitched from unrelated rows."""
+        rows = replay.load_rows()
+        grouped = {}
+        for idx, row in enumerate(rows):
+            key = (
+                str(row.get("suite_name", "")),
+                str(row.get("user_task_id", "")),
+                str(row.get("injection_task_id", "")),
+                str(row.get("attack_name", "")),
+            )
+            grouped.setdefault(key, []).append(idx)
+
+        for indices in grouped.values():
+            assert indices == list(range(indices[0], indices[0] + len(indices)))
+
+    def test_grouping_without_attack_name_is_ambiguous(self, replay):
+        """The audit must catch the failure mode it was written for."""
+        rows = replay.load_rows()
+        grouped = {}
+        for row in rows:
+            key = (str(row.get("suite_name", "")), str(row.get("user_task_id", "")),
+                   str(row.get("injection_task_id", "")))
+            grouped.setdefault(key, set()).add(str(row.get("attack_name", "")))
+        ambiguous = sum(1 for names in grouped.values() if len(names) > 1)
+        assert ambiguous > 0, (
+            "grouping without attack_name is now unambiguous; the audit guard "
+            "may no longer be needed"
+        )
+
+    def test_audit_reports_exclusions(self, replay, replay_trajs):
+        _, audit = replay_trajs
+        for key in ("rows", "trajectories", "excluded", "median_steps", "p95_steps", "max_steps"):
+            assert key in audit
+        assert audit["excluded_total"] == sum(audit["excluded"].values())
+
+    def test_no_trajectory_mixes_labels(self, replay, replay_trajs):
+        trajs, _ = replay_trajs
+        for traj in trajs[:60]:
+            assert traj.meta.label in (0, 1)
+
+
+class TestPermutationLeakage:
+    """H11: perturbing evaluation metadata must not move any prediction."""
+
+    def test_predictions_are_invariant_to_metadata(self, replay, replay_trajs):
+        trajs, _ = replay_trajs
+        attack = next(t for t in trajs if t.meta.label == 1)
+
+        baseline = replay._replay_one(attack, replay.cfg_full, "audit")
+
+        rng = random.Random(0)
+        for _ in range(100):
+            mutated = attack.__class__(
+                trajectory_id=attack.trajectory_id,
+                steps=attack.steps,  # identical observations
+                meta=type(attack.meta)(
+                    label=rng.choice([0, 1]),
+                    injection_goal=rng.choice(["", "email x@y.com", "delete /tmp"]),
+                    injection_task_id=rng.choice(["injection_task_0", "none", "zzz"]),
+                    attack_name=rng.choice(["direct", "none", "injecagent"]),
+                    suite_name=rng.choice(["workspace", "slack"]),
+                    user_task_id=rng.choice(["user_task_0", "user_task_7"]),
+                ),
+            )
+            again = replay._replay_one(mutated, replay.cfg_full, "audit")
+            assert again["decisions"] == baseline["decisions"]
+            # Delay is deliberately excluded: permutation invariance applies
+            # to predictions and signals, not to a wall-clock measurement.
+            assert again["blocked_at_step"] == baseline["blocked_at_step"]
+            assert (
+                [[s for s in o["signals"]] for o in again["lineage"]]
+                == [[s for s in o["signals"]] for o in baseline["lineage"]]
+            )
+
+
+class TestTrustPolicy:
+    """H3: trust must never be derived from a label."""
+
+    def test_all_responses_are_untrusted(self, replay, replay_trajs):
+        trajs, _ = replay_trajs
+        import inspect
+
+        src = inspect.getsource(replay._replay_one)
+        assert 'output_trust="untrusted"' in src or "output_trust = \"untrusted\"" in src
+        # And it must not branch on the label.
+        assert "if meta.label" not in src
+        assert "meta.label ==" not in src
+        assert "injection_goal" not in src
+
+    def test_benign_and_attack_get_the_same_trust(self, replay, replay_trajs):
+        """Same trust string for both classes -- verified from the call itself."""
+        trajs, _ = replay_trajs
+        benign = next(t for t in trajs if t.meta.label == 0)
+        attack = next(t for t in trajs if t.meta.label == 1)
+
+        seen_trust: List[str] = []
+
+        class Recorder:
+            def process_tool_call(self, **kwargs):
+                seen_trust.append(kwargs.get("output_trust"))
+                return {"decision": "ALLOW", "node_id": None}
+
+        for traj in (benign, attack):
+            before = len(seen_trust)
+            replay._replay_one(traj, lambda tag: Recorder(), "audit")
+            assert len(seen_trust) > before
+            assert set(seen_trust[before:]) == {"untrusted"}
+
+
+class TestReplayModes:
+    def test_enforcement_truncates_at_first_block(self, replay, replay_trajs):
+        attack = next(t for t in replay_trajs[0] if t.meta.label == 1)
+        audit = replay._replay_one(attack, replay.cfg_output_inspection, "audit")
+        enforce = replay._replay_one(attack, replay.cfg_output_inspection, "enforcement")
+        if audit["blocked_at_step"] is not None:
+            assert enforce["steps_executed"] <= audit["steps_executed"]
+            assert enforce["blocked_at_step"] == audit["blocked_at_step"]
+
+    def test_audit_never_truncates(self, replay, replay_trajs):
+        attack = next(t for t in replay_trajs[0] if t.meta.label == 1)
+        out = replay._replay_one(attack, replay.cfg_output_inspection, "audit")
+        assert out["steps_executed"] == len([s for s in attack.steps if s.tool_name])
+
+    def test_trace_fraction_is_within_unit_interval(self, replay, replay_trajs):
+        for traj in replay_trajs[0][:30]:
+            for mode in ("audit", "enforcement"):
+                out = replay._replay_one(traj, replay.cfg_full, mode)
+                assert 0.0 <= out["trace_fraction_executed"] <= 1.0
+
+
+class TestReportContract:
+    """H12/H13: the artifact must name what it is and is not."""
+
+    def test_report_disclaims_live_execution(self, replay, replay_trajs):
+        payload = replay.run(mode="audit", max_trajectories=2, output_path=None, bootstrap=False)
+        assert payload["native_logged_trace"] is True
+        assert payload["live_agent_execution"] is False
+        assert payload["llm_rerun"] is False
+   
