@@ -240,7 +240,7 @@ class TestRiskWeightedPath:
         g, a, b, c, d, e = self._two_path_graph()
         from app.shield.agent_behavior_graph import BehaviorEdge
 
-        g.add_edge(BehaviorEdge(from_node_id=d.node_id, to_node_id=e.node_id, risk_flow=0.9))
+        g.add_edge(BehaviorEdge(from_node_id=d.node_id, to_node_id=e.node_id, transfer_weight=0.9))
         path = g.get_risk_path(a.node_id, e.node_id)
         names = [n.tool_name for n in path]
         assert names == ["A", "C", "D", "E"]
@@ -292,7 +292,7 @@ class TestDownstreamTraversal:
             agent_id="a", tool_name="B", params_summary="",
             fuse_action="allow", shadow_risk_score=0.5, parent_node_id=a.node_id,
         )
-        g.add_edge(BehaviorEdge(from_node_id=b.node_id, to_node_id=a.node_id, risk_flow=0.5))
+        g.add_edge(BehaviorEdge(from_node_id=b.node_id, to_node_id=a.node_id, transfer_weight=0.5))
         # Must terminate rather than loop forever. In a cycle A is reachable
         # from itself, so both nodes appear exactly once.
         downstream = g.get_downstream_nodes(a.node_id)

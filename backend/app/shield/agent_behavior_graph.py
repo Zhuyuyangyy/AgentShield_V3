@@ -86,9 +86,19 @@ class BehaviorEdge:
     from_node_id: str = ""
     to_node_id: str = ""
     edge_type: str = "calls"          # calls / invokes / data_flow / returns
-    risk_flow: float = 0.0            # 沿这条边流动的风险量
+    # Pure transfer coefficient in [0, 1]. Risk lives on nodes, not edges: an
+    # edge says how much of the upstream node's *total* risk reaches the
+    # downstream node. It used to be set to the upstream node's own risk, while
+    # propagation also multiplied by it -- so three chained calls attenuated
+    # 0.8 as 0.8 * 0.8 * 0.8. One concept, one place.
+    transfer_weight: float = 1.0
     description: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
+
+    @property
+    def risk_flow(self) -> float:
+        """Deprecated alias for :attr:`transfer_weight`."""
+        return self.transfer_weight
 
     def to_summary(self) -> dict:
         return {
@@ -96,8 +106,24 @@ class BehaviorEdge:
             "from": self.from_node_id,
             "to": self.to_node_id,
             "type": self.edge_type,
-            "risk_flow": round(self.risk_flow, 3),
+            "transfer_weight": round(self.transfer_weight, 3),
         }
+
+
+#: Default transfer coefficient per edge type. ``calls`` loses something
+#: across an agent boundary; ``data_flow`` carries the value through intact.
+TRANSFER_WEIGHTS = {
+    "calls": 0.7,
+    "invokes": 0.7,
+    "data_flow": 1.0,
+    "consumes": 1.0,
+    "returns": 0.5,
+}
+
+
+def transfer_weight_for(edge_type: str) -> float:
+    """Transfer coefficient for ``edge_type`` (unknown types default to 1.0)."""
+    return TRANSFER_WEIGHTS.get(edge_type, 1.0)
 
 
 class AgentBehaviorGraph:
@@ -199,18 +225,45 @@ class AgentBehaviorGraph:
         self.add_node(node)
 
         if parent_node_id and parent_node_id in self.nodes:
-            parent = self.nodes[parent_node_id]
             edge = BehaviorEdge(
                 from_node_id=parent_node_id,
                 to_node_id=node.node_id,
                 edge_type=edge_type,
-                # 沿这条边流动的风险量取**上游**节点的风险：风险沿调用链
-                # 从上游传导到下游。（此前误用下游的 shadow_risk_score，
-                # 导致上游风险再高也传不下去。）
-                risk_flow=parent.shadow_risk_score,
+                # Transfer coefficient only -- the upstream node's risk is
+                # already on that node, so putting it here too squared it.
+                transfer_weight=transfer_weight_for(edge_type),
             )
             self.add_edge(edge)
 
+        return node
+
+    def update_node_risk(
+        self,
+        node_id: str,
+        total_risk: float,
+        fuse_action: Optional[str] = None,
+    ) -> Optional[BehaviorNode]:
+        """Write a governed risk back onto a node.
+
+        Used by the engine's two-pass governance: the node is first inserted at
+        its local risk so the parent edge exists, propagation then computes the
+        effective risk, and this records that outcome so the graph, its counters
+        and the audit chain all agree with the decision that was made.
+
+        Marks the node dirty so the next propagation recomputes it and its
+        descendants rather than serving a stale cache entry.
+        """
+        node = self.nodes.get(node_id)
+        if node is None:
+            return None
+
+        before = (node.risk_status, node.fuse_action)
+        node.shadow_risk_score = max(0.0, min(float(total_risk), 1.0))
+        node.risk_status = self._score_to_status(node.shadow_risk_score)
+        if fuse_action is not None:
+            node.fuse_action = fuse_action
+        self._bump_status_counters(before, node)
+        self._mark_dirty(node_id)
         return node
 
     # ─── 图查询 ──────────────────────────────────────────────
@@ -314,7 +367,7 @@ class AgentBehaviorGraph:
 
             local[node]      = node.shadow_risk_score
             total[node]      = max(local[node],
-                                   max over incoming edges e of total[e.from] * e.risk_flow)
+                                   max over incoming edges e of total[e.from] * e.transfer_weight)
             inherited[node]  = total[node] - local[node]
 
         返回值是**传播后的总风险** ``total[node]``（即该节点在考虑上游传导
@@ -367,11 +420,11 @@ class AgentBehaviorGraph:
         return dict(total_risk)
 
     def _incoming_edges(self, node_id: str) -> list[tuple[str, float]]:
-        """node_id 的入边列表 [(from, risk_flow), ...]。"""
+        """node_id 的入边列表 [(from, transfer_weight), ...]。"""
         edges = []
         for edge in self.edges.values():
             if edge.to_node_id == node_id and edge.from_node_id in self.nodes:
-                edges.append((edge.from_node_id, edge.risk_flow))
+                edges.append((edge.from_node_id, edge.transfer_weight))
         return edges
 
     def _collect_dirty_nodes(self) -> set[str]:

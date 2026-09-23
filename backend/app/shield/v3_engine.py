@@ -203,7 +203,7 @@ class V3ShieldEngine:
         parent_node_id: Optional[str] = None,
         labels: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        # Build observed event for signal extraction
+        # Build observed event for signal extraction (PASS 1: local only).
         from app.shield.schemas import ObservedToolEvent
 
         observed_event = ObservedToolEvent(
@@ -218,56 +218,72 @@ class V3ShieldEngine:
             chain_length=len(self.behavior_graph.get_session_nodes()),
         )
 
-        # Compute graph-derived risk state
-        graph_inherited = 0.0
-        graph_downstream = 0.0
-        graph_path = 0.0
-        if parent_node_id and parent_node_id in self.behavior_graph.nodes:
-            parent = self.behavior_graph.get_node(parent_node_id)
-            if parent:
-                graph_inherited = parent.inherited_risk
-                downstream_nodes = self.behavior_graph.get_downstream_nodes(parent_node_id)
-                graph_downstream = max(
-                    (n.shadow_risk_score for n in downstream_nodes), default=0.0
-                )
-
-        self._graph_risk_state = self._risk_extractor.compute_graph_risk_state(
-            event=observed_event,
-            graph_inherited_risk=graph_inherited,
-            graph_downstream_exposure=graph_downstream,
-            graph_path_risk=graph_path,
-        )
-
-        # Combine the engine's own signal-derived risk with any externally
-        # supplied score.
+        # PASS 2 -- insert into the graph at *local* risk and wire the parent
+        # edge, so propagation has something to travel along.
         #
-        # Taking the weighted blend (0.6 * computed + 0.4 * supplied) dragged
-        # every score toward the middle: a caller that already knew a call was
-        # critical and passed 0.95 still came out under the BLOCK threshold
-        # whenever the local signal was weak. The two estimates are independent
-        # evidence of the same thing, so the stronger one governs -- an
-        # external score can only ever raise the result, never dilute it.
-        computed_risk = self._graph_risk_state.combined_risk
-        supplied = max(0.0, min(float(risk_score), 1.0))
-        final_risk = max(computed_risk, supplied)
-
-        final_risk = max(0.0, min(float(final_risk), 1.0))
-
-        call_id = f"call_{uuid.uuid4().hex[:8]}"
-        action = _action_for_score(final_risk)
-        node_action = self._node_action(action)
+        # The node is inserted twice: once provisionally with the local risk so
+        # the edge exists, then rewritten with the propagated total. Inserting
+        # only after the decision (the previous order) meant propagation always
+        # ran on a graph that already excluded the current call, so the gate
+        # could never see it.
+        local_state = self._risk_extractor.compute_graph_risk_state(
+            event=observed_event,
+            graph_inherited_risk=0.0,
+            graph_downstream_exposure=0.0,
+            graph_path_risk=0.0,
+        )
+        local_risk = local_state.combined_risk
 
         node = self.behavior_graph.add_tool_call_as_node(
             agent_id=agent_id,
             tool_name=tool_name,
             params_summary=self._summarize_params(tool_name, params),
-            fuse_action=node_action,
-            shadow_risk_score=final_risk,
+            fuse_action=self._node_action("ALLOW"),
+            shadow_risk_score=local_risk,
             parent_node_id=parent_node_id,
-            inherited_risk=self._graph_risk_state.inherited_risk,
+            inherited_risk=0.0,
             labels=labels or [],
         )
-        self.behavior_graph.compute_risk_propagation()
+
+        # PASS 3 -- propagate. This is what makes the gate chain-aware: the
+        # current node now has upstream neighbours inside the graph.
+        propagated = self.behavior_graph.compute_risk_propagation()
+
+        effective_risk = propagated.get(node.node_id, local_risk)
+        graph_inherited = max(0.0, effective_risk - local_risk)
+
+        # Refresh the signal state with the graph context that only exists
+        # after insertion (downstream exposure, inherited risk).
+        graph_downstream = 0.0
+        if parent_node_id and parent_node_id in self.behavior_graph.nodes:
+            downstream_nodes = self.behavior_graph.get_downstream_nodes(parent_node_id)
+            graph_downstream = max(
+                (n.shadow_risk_score for n in downstream_nodes), default=0.0
+            )
+        self._graph_risk_state = self._risk_extractor.compute_graph_risk_state(
+            event=observed_event,
+            graph_inherited_risk=graph_inherited,
+            graph_downstream_exposure=graph_downstream,
+            graph_path_risk=0.0,
+        )
+
+        # PASS 4 -- govern on the propagated risk.
+        #
+        # The decision now uses the same number the graph exports for this
+        # node. An externally supplied score can raise it (independent
+        # evidence), never dilute it.
+        supplied = max(0.0, min(float(risk_score), 1.0))
+        final_risk = max(0.0, min(max(effective_risk, supplied), 1.0))
+
+        call_id = f"call_{uuid.uuid4().hex[:8]}"
+        action = _action_for_score(final_risk)
+        node_action = self._node_action(action)
+
+        # PASS 5 -- write the governance outcome back onto the node so the
+        # graph, its counters and the audit chain agree with the decision.
+        self.behavior_graph.update_node_risk(
+            node.node_id, total_risk=final_risk, fuse_action=node_action
+        )
 
         branches = self._generate_future_branches(agent_id, tool_name, final_risk)
         gate_result = {

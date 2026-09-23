@@ -493,40 +493,78 @@ class TestRiskPropagationDeterminism:
         assert nodes[1].inherited_risk > 0
         assert nodes[2].inherited_risk > 0
 
-    def test_edge_risk_flow_is_upstream_risk(self):
-        """risk_flow on an edge must be the upstream node's risk."""
+    def test_edge_carries_a_transfer_coefficient_not_source_risk(self):
+        """An edge must not also carry the upstream node's risk.
+
+        It used to: ``risk_flow = parent.shadow_risk_score`` while propagation
+        multiplied by it, so three chained calls attenuated 0.8 as
+        0.8 * 0.8 * 0.8. Risk now lives on nodes; an edge only says how much of
+        the upstream total gets through.
+        """
         graph, nodes = self._chain([0.9, 0.05])
         edges = list(graph.edges.values())
         assert len(edges) == 1
-        assert edges[0].risk_flow == pytest.approx(0.9)
+        # Default edge type is "calls" -> 0.7, independent of the 0.9 on the node.
+        from app.shield.agent_behavior_graph import transfer_weight_for
+
+        assert edges[0].transfer_weight == pytest.approx(transfer_weight_for("calls"))
+        assert edges[0].risk_flow == pytest.approx(0.7)  # deprecated alias
+        # And the node itself still holds the source risk.
+        assert nodes[0].shadow_risk_score == pytest.approx(0.9)
 
     def test_result_is_independent_of_insertion_order(self):
-        """The same graph yields the same result regardless of build order."""
+        """The same graph yields the same result regardless of build order.
+
+        Note the construction: nodes are created in a shuffled order but the
+        parent is always created *before* its child, because
+        ``add_tool_call_as_node`` cannot attach an edge to a node that does not
+        exist yet. Reversing the list so a child precedes its parent silently
+        drops the edge -- that is a different graph, not a different order of
+        the same graph.
+        """
+        import random as _random
+
         from app.shield.agent_behavior_graph import AgentBehaviorGraph
 
-        def build(reversed_insert):
+        # A -> B -> C, and A -> D (C and D are siblings).
+        specs = [("A", 0.3, None), ("B", 0.8, "A"), ("C", 0.1, "A"), ("D", 0.5, "B")]
+
+        def build(order):
             graph = AgentBehaviorGraph(session_id="order")
-            specs = [("A", 0.3), ("B", 0.8), ("C", 0.1)]
-            if reversed_insert:
-                specs = list(reversed(specs))
             by_name = {}
-            for name, risk in specs:
+            for name, risk, parent in order:
                 node = graph.add_tool_call_as_node(
                     agent_id="a",
                     tool_name=name,
                     params_summary="",
                     fuse_action="allow",
                     shadow_risk_score=risk,
-                    parent_node_id=by_name.get("A") if name != "A" else None,
+                    parent_node_id=by_name.get(parent) if parent else None,
                 )
                 by_name[name] = node.node_id
             graph.compute_risk_propagation()
             return {
-                name: graph.nodes[nid].inherited_risk
+                name: round(graph.nodes[nid].inherited_risk, 6)
                 for name, nid in by_name.items()
             }
 
-        assert build(False) == build(True)
+        forward = build(specs)
+        # Shuffle while keeping every parent ahead of its children.
+        for seed in range(20):
+            rng = _random.Random(seed)
+            shuffled = specs[:]
+            for _ in range(50):
+                rng.shuffle(shuffled)
+                seen = set()
+                ok = True
+                for name, _, parent in shuffled:
+                    if parent and parent not in seen:
+                        ok = False
+                        break
+                    seen.add(name)
+                if ok:
+                    break
+            assert build(shuffled) == forward, f"seed {seed} disagreed"
 
     def test_diamond_takes_max_incoming_path(self):
         """With two parents, the higher-risk path wins."""
@@ -554,7 +592,7 @@ class TestRiskPropagationDeterminism:
             __import__(
                 "app.shield.agent_behavior_graph", fromlist=["BehaviorEdge"]
             ).BehaviorEdge(
-                from_node_id=c.node_id, to_node_id=d.node_id, risk_flow=0.9
+                from_node_id=c.node_id, to_node_id=d.node_id, transfer_weight=0.9
             )
         )
         graph.compute_risk_propagation()
@@ -581,7 +619,7 @@ class TestRiskPropagationDeterminism:
             __import__(
                 "app.shield.agent_behavior_graph", fromlist=["BehaviorEdge"]
             ).BehaviorEdge(
-                from_node_id=b.node_id, to_node_id=a.node_id, risk_flow=0.3
+                from_node_id=b.node_id, to_node_id=a.node_id, transfer_weight=0.3
             )
         )
         result = graph.compute_risk_propagation()  # must terminate

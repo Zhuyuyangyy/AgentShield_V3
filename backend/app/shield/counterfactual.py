@@ -157,7 +157,7 @@ class CounterfactualEngine:
                     from_node_id=edge.from_node_id,
                     to_node_id=edge.to_node_id,
                     edge_type=edge.edge_type,
-                    risk_flow=edge.risk_flow,
+                    transfer_weight=edge.transfer_weight,
                     description=edge.description,
                 )
                 try:
@@ -178,7 +178,7 @@ class CounterfactualEngine:
                             from_node_id=edge.from_node_id,
                             to_node_id=out_edge.to_node_id,
                             edge_type=edge.edge_type,
-                            risk_flow=out_edge.risk_flow,
+                            transfer_weight=out_edge.transfer_weight,
                             description=f"Bridge edge (bypassing removed {event_id})",
                         )
                         try:
