@@ -19,7 +19,6 @@ from typing import Optional
 from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
-
 # ─── API Key Authentication ──────────────────────────────────────────────────
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)

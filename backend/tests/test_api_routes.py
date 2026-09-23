@@ -67,7 +67,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_health_endpoint(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/health")
@@ -79,7 +79,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_root_endpoint(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/")
@@ -90,7 +90,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_process_call_low_risk(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/v3/process_call", json={
@@ -111,7 +111,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_process_call_high_risk_blocks(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         # Mock risk computation to produce high computed risk so the
         # blended final_risk reaches the BLOCK threshold
@@ -136,7 +136,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_process_call_medium_risk_triggers_review(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         # Mock risk computation to produce medium computed risk so the
         # blended final_risk falls in the HUMAN_REVIEW range
@@ -160,7 +160,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_process_call_generates_future_branches(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         # Mock risk computation to produce high computed risk so branches are generated
         with patch(
@@ -183,7 +183,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_process_call_whatif_on_high_risk(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         # Mock risk computation to produce high computed risk so whatif is triggered
         with patch(
@@ -207,7 +207,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_get_status_returns_governance_info(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             # First create a session
@@ -228,7 +228,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_get_status_404_for_unknown_session(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/v3/status/nonexistent_session_xyz")
@@ -236,7 +236,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_fork_branch_creates_intervention(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             # Create session first
@@ -260,7 +260,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_export_chain_returns_full_data(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             await client.post("/api/v3/process_call", json={
@@ -280,7 +280,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_export_chain_404_for_unknown(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/v3/export_chain/nonexistent_xyz")
@@ -288,7 +288,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_behavior_graph_endpoint(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             await client.post("/api/v3/process_call", json={
@@ -308,7 +308,7 @@ class TestV3RoutesMain:
 
     @pytest.mark.anyio
     async def test_simulate_steps(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             await client.post("/api/v3/process_call", json={
@@ -336,7 +336,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_standalone_health(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/health")
@@ -347,7 +347,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_evaluate_endpoint(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/evaluate", json={
@@ -367,7 +367,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_evaluate_auto_generates_session_id(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/evaluate", json={
@@ -382,7 +382,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_agent_registry(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/agent/registry")
@@ -396,7 +396,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_behavior_chain_endpoint(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/agent/behavior_chain", json={
@@ -414,7 +414,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_evaluate_intent_endpoint(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/agent/evaluate_intent", json={
@@ -430,7 +430,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_evaluate_intent_no_actions(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/agent/evaluate_intent", json={
@@ -444,7 +444,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_sessions_list_endpoint(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/sessions")
@@ -454,7 +454,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_health_detailed_endpoint(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/health_detailed")
@@ -466,7 +466,7 @@ class TestStandaloneAppRoutes:
 
     @pytest.mark.anyio
     async def test_get_session_404(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.get("/api/session/nonexistent_session_xyz")
@@ -480,7 +480,7 @@ class TestValidation:
 
     @pytest.mark.anyio
     async def test_process_call_missing_required_fields(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/v3/process_call", json={
@@ -491,7 +491,7 @@ class TestValidation:
 
     @pytest.mark.anyio
     async def test_evaluate_missing_agent_id(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/evaluate", json={
@@ -503,7 +503,7 @@ class TestValidation:
     @pytest.mark.anyio
     async def test_process_call_risk_score_clamped(self, main_app):
         """Risk scores outside [0,1] should be clamped by the engine."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/v3/process_call", json={
@@ -520,7 +520,7 @@ class TestValidation:
 
     @pytest.mark.anyio
     async def test_process_call_negative_risk_clamped(self, main_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             resp = await client.post("/api/v3/process_call", json={
@@ -544,7 +544,7 @@ class TestMultiStepScenarios:
     @pytest.mark.anyio
     async def test_escalating_risk_chain(self, main_app):
         """Simulate a chain of tool calls with escalating risk."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
         transport = ASGITransport(app=main_app)
         session_id = "escalation_test"
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -626,7 +626,7 @@ class TestAsyncSessionPersistence:
 
         persistence.reset()
 
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         n_calls = 25
         async with AsyncClient(transport=ASGITransport(app=app_mod.app), base_url="http://t") as client:

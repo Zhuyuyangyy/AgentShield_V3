@@ -19,7 +19,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-
 # 上游传导风险超过该阈值时，节点被标记为「放大了下游风险」。
 _AMPLIFICATION_THRESHOLD = 0.1
 # 判定「关键节点」的本地风险阈值（与 get_critical_nodes 的默认参数一致）。
@@ -310,7 +309,8 @@ class AgentBehaviorGraph:
         settled: set[str] = set()
 
         while heap:
-            neg_score, node_id = heapq.heappop(heap)
+            # ``best`` remains the authoritative score; the heap only orders.
+            _neg_score, node_id = heapq.heappop(heap)
             if node_id in settled:
                 continue
             settled.add(node_id)
@@ -403,7 +403,7 @@ class AgentBehaviorGraph:
                 if src in total_risk
             ]
             base = self.nodes[nid].shadow_risk_score if nid in self.nodes else 0.0
-            total_risk[nid] = max([base] + candidates)
+            total_risk[nid] = max([base, *candidates])
 
         # 回写 inherited_risk（相对本地风险的增量），并标记放大器节点。
         for nid, total in total_risk.items():

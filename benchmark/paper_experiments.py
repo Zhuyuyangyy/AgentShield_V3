@@ -27,7 +27,7 @@ _BACKEND = _ROOT / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from app.shield.schemas import ObservedToolEvent, event_from_dict, ground_truth_from_dict  # noqa: E402
+from app.shield.schemas import ObservedToolEvent, event_from_dict, ground_truth_from_dict
 from benchmark.strong_baselines import (
     get_baseline, ALL_BASELINES,
 )
@@ -82,7 +82,7 @@ def run_main_comparison(
         "agentshield_production",
     ]
 
-    with open(dataset_path, "r", encoding="utf-8") as f:
+    with open(dataset_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     events = [event_from_dict(item) for item in raw_items]
@@ -162,7 +162,7 @@ def run_ablation_study(
         ("no_provenance", {"enable_provenance": False}),
     ]
 
-    with open(dataset_path, "r", encoding="utf-8") as f:
+    with open(dataset_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     events = [event_from_dict(item) for item in raw_items]
@@ -225,7 +225,7 @@ def run_leakage_test(
     1. Normal events (with all observable fields)
     2. Shuffled forbidden fields (should not change results if no leakage)
     """
-    with open(dataset_path, "r", encoding="utf-8") as f:
+    with open(dataset_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     events = [event_from_dict(item) for item in raw_items]
@@ -452,7 +452,7 @@ def run_review_cost_analysis(
     output_path: Optional[str] = None,
 ) -> ExperimentResult:
     """Analyze human review cost: review rate, false block rate."""
-    with open(dataset_path, "r", encoding="utf-8") as f:
+    with open(dataset_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     events = [event_from_dict(item) for item in raw_items]

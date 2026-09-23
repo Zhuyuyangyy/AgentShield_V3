@@ -69,16 +69,18 @@ class OTelExporter:
         """Initialize OTel tracer if SDK is available."""
         try:
             from opentelemetry import trace
+            from opentelemetry.sdk.resources import Resource
             from opentelemetry.sdk.trace import TracerProvider
             from opentelemetry.sdk.trace.export import BatchSpanProcessor
-            from opentelemetry.sdk.resources import Resource
 
             resource = Resource.create({"service.name": self.SERVICE_NAME})
             provider = TracerProvider(resource=resource)
 
             if self.ENDPOINT:
                 try:
-                    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+                    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+                        OTLPSpanExporter,
+                    )
                     exporter = OTLPSpanExporter(endpoint=self.ENDPOINT)
                     provider.add_span_processor(BatchSpanProcessor(exporter))
                 except ImportError:

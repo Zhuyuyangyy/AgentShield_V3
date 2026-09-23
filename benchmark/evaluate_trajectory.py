@@ -55,7 +55,7 @@ BACKEND = ROOT / "backend"
 if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 
-from benchmark.evaluation_contract import observable_view  # noqa: E402
+from benchmark.evaluation_contract import observable_view
 
 # Tools that constitute the "sink" of an injected instruction: they either
 # leave the trust boundary or change system state.

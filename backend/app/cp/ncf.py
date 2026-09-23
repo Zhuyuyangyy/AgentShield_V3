@@ -34,14 +34,13 @@ Three NCFs are provided, ordered by increasing richness:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, ClassVar, Dict, List, Optional, Sequence
 
 from app.cp.core import (
     ACTION_LABELS,
     CalibrationItem,
     NonconformityFunction,
 )
-
 
 # ─── Label lattice shared with app.cp.core ──────────────────────────────────
 # Governance actions ordered by severity.  Re-exported so that callers can use
@@ -105,7 +104,7 @@ class ScoreBasedNCF(NonconformityFunction):
     name = "score_based"
 
     #: Reference risk centre for each action on the severity lattice.
-    _REFERENCE_RISK: Dict[str, float] = {
+    _REFERENCE_RISK: ClassVar[Dict[str, float]] = {
         "ALLOW": 0.15,
         "HUMAN_REVIEW": 0.65,
         "BLOCK": 0.95,
@@ -276,10 +275,10 @@ class AdaptiveNCF(ScoreBasedNCF):
 
 
 __all__ = [
-    "CROSS_ENTROPY_LABELS",
     "ACTION_LABEL_TO_IDX",
+    "CROSS_ENTROPY_LABELS",
     "IDX_TO_ACTION",
-    "ScoreBasedNCF",
-    "BehaviorGraphNCF",
     "AdaptiveNCF",
+    "BehaviorGraphNCF",
+    "ScoreBasedNCF",
 ]

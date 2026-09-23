@@ -132,7 +132,7 @@ def main() -> None:
         report = run(dataset=args.dataset, json_out=args.json_out, md_out=args.md_out)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
     print(f"Evaluated {report['total_traces']} traces / {report['total_steps']} steps")
     print(f"JSON report: {args.json_out}")

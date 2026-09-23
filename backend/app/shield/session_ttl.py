@@ -5,10 +5,13 @@ Manages session lifecycle with automatic expiration and cleanup.
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -114,7 +117,10 @@ class SessionTTLManager:
             try:
                 self.cleanup_callback(session_id)
             except Exception:
-                pass
+                # A failing cleanup callback must not abort the whole sweep,
+                # but silently swallowing it hides broken cleanup. Log and move
+                # on to the next session.
+                logger.exception("Session cleanup callback failed for %s", session_id)
 
     def get_active_count(self) -> int:
         """Get number of active (non-expired) sessions."""

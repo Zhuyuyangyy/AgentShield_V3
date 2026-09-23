@@ -387,9 +387,7 @@ def load_semireal_traces(path: Path) -> List[Dict[str, Any]]:
         scenario = trace.get("scenario_type", "")
         if tool in {"http_request", "send_email"}:
             stage = "exfiltrate"
-        elif tool in {"file_write", "compress_file", "export_csv"}:
-            stage = "stage"
-        elif "bypass" in scenario:
+        elif tool in {"file_write", "compress_file", "export_csv"} or "bypass" in scenario:
             stage = "stage"
         else:
             stage = "collect" if selected.get("local_risk_score", 0.0) >= 0.60 else "single_call"
@@ -462,7 +460,7 @@ def run_sci(dataset: Path, json_out: Path, csv_out: Path, delta_csv: Path) -> Di
         "dataset": str(dataset),
         "total_cases": len(cases),
         "labels": LABELS,
-        "ablation": [full_result] + ablation_results,
+        "ablation": [full_result, *ablation_results],
         "baselines": baselines_report,
     }
 
@@ -482,7 +480,7 @@ def run_semireal(dataset: Path, json_out: Path, csv_out: Path, delta_csv: Path) 
         "dataset": str(dataset),
         "total_cases": len(cases),
         "labels": LABELS,
-        "ablation": [full_result] + ablation_results,
+        "ablation": [full_result, *ablation_results],
     }
 
     json_out.parent.mkdir(parents=True, exist_ok=True)

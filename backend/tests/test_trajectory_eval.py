@@ -646,4 +646,4 @@ class TestReportContract:
         assert payload["native_logged_trace"] is True
         assert payload["live_agent_execution"] is False
         assert payload["llm_rerun"] is False
-   
+

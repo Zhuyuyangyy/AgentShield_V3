@@ -1,5 +1,6 @@
 """最小修复：在 evaluate.py 中 normalize 动作比较，解决 V2 标签和 V3 引擎的兼容问题"""
-import json, sys
+import json
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
@@ -63,11 +64,7 @@ def evaluate_case(engine, case):
     # 如果描述中出现"伪造""绕过""投毒""注入""隧道传输""盲注"等关键词，直接 Block
     high_risk_kw = ["伪造", "绕过", "投毒", "注入", "盲注", "隧道", "隐藏传输",
                     "SQL注入", "CDN缓存", "时间盲注", "端口扫描", "回调机制"]
-    if any(kw in desc for kw in high_risk_kw) and expected_risk >= 0.80:
-        expected_action = normalize("BLOCK")
-    elif "利用" in desc and "漏洞" in desc.lower():
-        expected_action = normalize("BLOCK")
-    elif "SQL注入" in desc or "时间盲注" in desc:
+    if (any(kw in desc for kw in high_risk_kw) and expected_risk >= 0.80) or ("利用" in desc and "漏洞" in desc.lower()) or "SQL注入" in desc or "时间盲注" in desc:
         expected_action = normalize("BLOCK")
 
     action_correct = (actual_action == expected_action)

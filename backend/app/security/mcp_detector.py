@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-
 # ─── Constants ──────────────────────────────────────────────────────────────
 
 # Research-backed default amplification factor for protocol-level propagation.

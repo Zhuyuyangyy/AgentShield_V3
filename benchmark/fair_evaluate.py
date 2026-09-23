@@ -182,7 +182,7 @@ def run_fair_evaluation(
     Returns:
         List of EvalResult objects
     """
-    with open(dataset_path, "r", encoding="utf-8") as f:
+    with open(dataset_path, encoding="utf-8") as f:
         raw_items = json.load(f)
 
     # Split into observed events and ground truths

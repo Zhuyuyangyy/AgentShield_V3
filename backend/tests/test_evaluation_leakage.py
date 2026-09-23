@@ -482,13 +482,15 @@ class TestEvaluatorBoundaryIsolation:
     that raises if it sees anything it should not.
     """
 
-    FORBIDDEN = [
+    # tuple, not list: a mutable class attribute would be shared across
+    # every instance of any subclass.
+    FORBIDDEN = (
         "label", "expected_label", "expected_action", "expected_risk_score",
         "injection_goal", "attack_name", "injection_task_id",
         "target_functions", "grading_function", "attack_stage",
         "rationale", "chain_id", "step_index", "v3_specific",
         "v3_standard_action", "category",
-    ]
+    )
 
     def _nosy_predictor(self, seen):
         def predictor(observation):

@@ -135,7 +135,7 @@ class TestCORSConfiguration:
 
     @pytest.mark.anyio
     async def test_unlisted_origin_gets_no_allow_header(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://t") as client:
@@ -144,7 +144,7 @@ class TestCORSConfiguration:
 
     @pytest.mark.anyio
     async def test_plain_request_still_works(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://t") as client:
@@ -167,9 +167,8 @@ class TestRateLimiting:
         pytest.fail("/health route not found")
 
     def test_rate_limit_key_prefers_forwarded_for(self):
-        from fastapi import Request
-
         from app.standalone_routes import _rate_limit_key
+        from fastapi import Request
 
         scope = {
             "type": "http",
@@ -179,17 +178,15 @@ class TestRateLimiting:
         assert _rate_limit_key(Request(scope)) == "203.0.113.9"
 
     def test_rate_limit_key_falls_back_to_socket(self):
-        from fastapi import Request
-
         from app.standalone_routes import _rate_limit_key
+        from fastapi import Request
 
         scope = {"type": "http", "headers": [], "client": ("198.51.100.7", 999)}
         assert _rate_limit_key(Request(scope)) == "198.51.100.7"
 
     def test_rate_limit_key_survives_missing_client(self):
-        from fastapi import Request
-
         from app.standalone_routes import _rate_limit_key
+        from fastapi import Request
 
         scope = {"type": "http", "headers": [], "client": None}
         assert _rate_limit_key(Request(scope)) == "unknown"
@@ -333,7 +330,7 @@ class TestAuditChainVerification:
 class TestBehaviorChainIsDeterministic:
     @pytest.mark.anyio
     async def test_identical_input_yields_identical_risk(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         payload = {
             "agents": [
@@ -360,7 +357,7 @@ class TestBehaviorChainIsDeterministic:
         not echoed verbatim -- but it must shift the outcome, and the same
         input must always give the same number.
         """
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         low = {"agents": [{"id": "a", "action": "noop", "target": "", "input": {}, "risk_score": 0.05}]}
         high = {"agents": [{"id": "a", "action": "noop", "target": "", "input": {}, "risk_score": 0.95}]}
@@ -383,7 +380,7 @@ class TestBehaviorChainIsDeterministic:
         automatic BLOCK -- what must hold is that it moves the number up and
         that identical input always yields identical output.
         """
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         def payload(score):
             return {
@@ -410,7 +407,7 @@ class TestBehaviorChainIsDeterministic:
 
     @pytest.mark.anyio
     async def test_empty_chain(self, standalone_app):
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=standalone_app)
         async with AsyncClient(transport=transport, base_url="http://t") as client:

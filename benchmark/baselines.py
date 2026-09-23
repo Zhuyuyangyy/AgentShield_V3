@@ -85,13 +85,13 @@ CHAIN_STAGE_BOOST = {
 # The forbidden-field set and observable_view live in one place so this file,
 # external_experiment.py and schemas.py cannot drift apart. See
 # docs/research/EVALUATION_CONTRACT.md.
-from benchmark.evaluation_contract import (  # noqa: E402,F401
+from benchmark.evaluation_contract import (
     FORBIDDEN_CASE_FIELDS,
     observable_view,
 )
 
 # Re-exported for callers that imported these from baselines historically.
-__all__ = ["observable_view", "FORBIDDEN_CASE_FIELDS"]
+__all__ = ["FORBIDDEN_CASE_FIELDS", "observable_view"]
 
 
 def _infer_chain_position(text: str) -> str:
@@ -654,7 +654,7 @@ def main() -> None:
         report = run(args.dataset, args.json_out, args.md_out)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
     print(f"Evaluated {report['total_cases']} cases")
     print(f"JSON report: {args.json_out}")

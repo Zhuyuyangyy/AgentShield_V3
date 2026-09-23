@@ -16,7 +16,6 @@ from typing import Optional
 
 from fastapi import Request
 
-
 # Context variable for current tenant
 _current_tenant: ContextVar[str] = ContextVar("current_tenant", default="default")
 

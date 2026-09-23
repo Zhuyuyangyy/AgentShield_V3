@@ -325,7 +325,7 @@ def main() -> None:
     for name, res in per_config.items():
         print(
             f"{name:26s} {res['attack_flag_rate']:>15.3f} "
-            f"{res['benign_flag_rate']:>15.3f} {str(res['pairing_valid']):>13s}"
+            f"{res['benign_flag_rate']:>15.3f} {res['pairing_valid']!s:>13s}"
         )
     print(f"\nWritten to {out_path}")
 

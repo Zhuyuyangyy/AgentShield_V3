@@ -2,7 +2,6 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -44,8 +43,8 @@ def test_semireal_traces_include_required_risky_scenarios(tmp_path):
 
 
 def test_semireal_evaluator_writes_report_and_table(tmp_path):
-    from benchmark.generate_semireal_traces import generate_traces
     from benchmark.evaluate_semireal import run
+    from benchmark.generate_semireal_traces import generate_traces
 
     dataset = tmp_path / "semireal.json"
     json_out = tmp_path / "report.json"

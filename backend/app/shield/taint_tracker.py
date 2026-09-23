@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
 from app.shield.artifacts import (
-    ObservedContentArtifact,
     TRUST_TRUSTED,
+    ObservedContentArtifact,
     content_hash,
     extract_entities,
     is_untrusted,

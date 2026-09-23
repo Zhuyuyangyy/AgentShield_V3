@@ -378,9 +378,11 @@ async def get_session(session_id: str):
         return saved
     except HTTPException:
         raise
-    except Exception:
+    except Exception as err:
         logger.exception("Failed to load session %s", session_id)
-        raise HTTPException(status_code=500, detail="Internal error loading session")
+        raise HTTPException(
+            status_code=500, detail="Internal error loading session"
+        ) from err
 
 
 @standalone_router.delete("/api/session/{session_id}")

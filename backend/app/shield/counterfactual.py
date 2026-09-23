@@ -7,11 +7,12 @@ re-evaluated with the behavior graph to estimate actual risk reduction.
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
-from app.shield.agent_behavior_graph import AgentBehaviorGraph, BehaviorNode, BehaviorEdge
+from app.shield.agent_behavior_graph import AgentBehaviorGraph, BehaviorEdge, BehaviorNode
 
 
 @dataclass
@@ -78,7 +79,7 @@ class CounterfactualEngine:
     """
 
     # Business cost estimates by tool category
-    TOOL_BUSINESS_COST = {
+    TOOL_BUSINESS_COST: ClassVar[Dict[str, float]] = {
         "execute_sql": 0.05,
         "cursor.execute": 0.05,
         "read_file": 0.03,
@@ -160,10 +161,9 @@ class CounterfactualEngine:
                     transfer_weight=edge.transfer_weight,
                     description=edge.description,
                 )
-                try:
+                # Skip edges whose endpoints were removed above.
+                with contextlib.suppress(ValueError):
                     modified.add_edge(new_edge)
-                except ValueError:
-                    pass  # Skip edges with missing nodes
 
         # Re-attach orphaned edges: if an edge pointed TO the removed node,
         # reconnect it to the removed node's parent (if any)
@@ -181,10 +181,8 @@ class CounterfactualEngine:
                             transfer_weight=out_edge.transfer_weight,
                             description=f"Bridge edge (bypassing removed {event_id})",
                         )
-                        try:
+                        with contextlib.suppress(ValueError):
                             modified.add_edge(bridge_edge)
-                        except ValueError:
-                            pass
 
         # Recompute risk propagation on modified graph
         modified.compute_risk_propagation()

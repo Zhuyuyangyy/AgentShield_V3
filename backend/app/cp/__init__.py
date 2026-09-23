@@ -18,21 +18,21 @@ Key papers:
 
 from app.cp.core import ConformalPredictor, NonconformityFunction
 from app.cp.ncf import (
-    ScoreBasedNCF,
-    BehaviorGraphNCF,
-    AdaptiveNCF,
-    CROSS_ENTROPY_LABELS,
     ACTION_LABEL_TO_IDX,
+    CROSS_ENTROPY_LABELS,
     IDX_TO_ACTION,
+    AdaptiveNCF,
+    BehaviorGraphNCF,
+    ScoreBasedNCF,
 )
 
 __all__ = [
+    "ACTION_LABEL_TO_IDX",
+    "CROSS_ENTROPY_LABELS",
+    "IDX_TO_ACTION",
+    "AdaptiveNCF",
+    "BehaviorGraphNCF",
     "ConformalPredictor",
     "NonconformityFunction",
     "ScoreBasedNCF",
-    "BehaviorGraphNCF",
-    "AdaptiveNCF",
-    "CROSS_ENTROPY_LABELS",
-    "ACTION_LABEL_TO_IDX",
-    "IDX_TO_ACTION",
 ]

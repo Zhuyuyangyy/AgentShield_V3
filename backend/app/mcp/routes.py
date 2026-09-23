@@ -7,9 +7,8 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.mcp.proxy import MCPShieldProxy, MCPToolDescriptor, MCPToolInvocation
 from app.security.auth import verify_api_key
-from app.mcp.proxy import MCPShieldProxy, MCPToolInvocation, MCPToolDescriptor
-
 
 # ─── Request/Response Models ─────────────────────────────────────────────────
 

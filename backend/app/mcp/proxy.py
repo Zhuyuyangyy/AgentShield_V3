@@ -27,7 +27,6 @@ from app.security.mcp_detector import MCPAttackDetector, MCPThreatReport
 from app.shield.risk_extractor import RiskSignalExtractor
 from app.shield.schemas import ObservedToolEvent
 
-
 # ─── MCP Event Schema ────────────────────────────────────────────────────────
 
 @dataclass
@@ -292,10 +291,8 @@ class MCPShieldProxy:
         allowed = self._server_scopes.get(invocation.server_id, set())
         if not allowed:
             return False
-        for scope in invocation.auth_scope:
-            if scope not in allowed:
-                return True
-        return False
+        # Any scope outside the server's allow-list is an escalation attempt.
+        return any(scope not in allowed for scope in invocation.auth_scope)
 
     def _check_output_leakage(self, invocation: MCPToolInvocation) -> float:
         """Pre-check for potential output leakage."""

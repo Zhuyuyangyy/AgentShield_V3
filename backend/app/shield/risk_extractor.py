@@ -9,9 +9,8 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-from app.shield.risk_signals import RiskSignal, RiskSignalType, GraphRiskState
+from app.shield.risk_signals import GraphRiskState, RiskSignal, RiskSignalType
 from app.shield.schemas import ObservedToolEvent
-
 
 # ─── Pattern Definitions ─────────────────────────────────────────────────────
 

@@ -20,12 +20,13 @@ For agent decisions (ALLOW=0, HUMAN_REVIEW=1, BLOCK=2):
 
 from __future__ import annotations
 
-import math
 import json
-import numpy as np
+import math
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 from enum import IntEnum
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 
 class ActionLabel(IntEnum):
@@ -60,7 +61,7 @@ class NCFResult:
     most_conforming: str      # argmin action
 
 
-@dataclass 
+@dataclass
 class PredictionSet:
     """Conformal prediction set output"""
     actions: List[str]                    # Predicted set of actions
@@ -70,7 +71,7 @@ class PredictionSet:
     ncf_used: str                         # NCF class name
     decision_reason: str                  # Human-readable explanation
     set_size: int = field(init=False)
-    
+
     def __post_init__(self):
         self.set_size = len(self.actions)
 
@@ -100,18 +101,18 @@ class NonconformityFunction:
     def score(self, features: Dict[str, Any], action: str) -> float:
         """
         Compute nonconformity score: NCF(x, y)
-        
+
         Args:
             features: Feature dictionary for the test case
             action: Candidate action label
-            
+
         Returns:
             Nonconformity score (lower = more conformal)
         """
         raise NotImplementedError
 
     def calibrate(
-        self, 
+        self,
         calibration_set: List[CalibrationItem]
     ) -> None:
         """
@@ -131,18 +132,18 @@ class NonconformityFunction:
 class ConformalPredictor:
     """
     Conformal Prediction predictor for agent decisions.
-    
+
     Uses the Sampsons/Adaptive Conformal Inference (ACI) approach
     with Mondrian categorization for proper coverage across risk levels.
-    
+
     Workflow:
       1. calibrate() → fit NCF on calibration set
       2. compute_quantile() → find 1-α quantile of calibration scores
       3. predict() → generate prediction set for new input
-    
+
     The key guarantee:
       P(true_action ∈ predict_set) ≥ 1 - α
-    
+
     This holds under the assumption that calibration and test data
     are exchangeable (no distribution shift).
     """
@@ -162,7 +163,7 @@ class ConformalPredictor:
         self.ncf = ncf
         self.alpha = alpha
         self.use_adaptive = use_adaptive
-        
+
         self._calibration_set: List[CalibrationItem] = []
         self._quantile: Optional[float] = None
         self._is_calibrated: bool = False
@@ -175,13 +176,13 @@ class ConformalPredictor:
     ) -> CalibrationStats:
         """
         Calibrate the predictor on historical agent decisions.
-        
+
         Args:
             calibration_data: List of dicts with keys:
                 - case_id, features, true_action, risk_score
                 - optionally: inherited_risk, graph_degree, chain_length
             fit_ncf: Whether to call ncf.calibrate() on the data
-            
+
         Returns:
             CalibrationStats with quantile and coverage info
         """
@@ -199,34 +200,34 @@ class ConformalPredictor:
                 metadata=item.get("metadata", {}),
             )
             self._calibration_set.append(cal_item)
-        
+
         # Optionally fit NCF parameters
         if fit_ncf:
             self.ncf.calibrate(self._calibration_set)
-        
+
         # Compute quantile
         self._quantile = self.compute_quantile()
-        
+
         # Compute statistics
         self._stats = self._compute_stats()
         self._is_calibrated = True
-        
+
         return self._stats
 
     def compute_quantile(self) -> float:
         """
         Compute the 1-α quantile of calibration nonconformity scores.
-        
+
         Uses the standard CP quantile formula:
             q̂ = ceil((n+1)(1-α)) / n
-        
+
         Returns:
             The calibrated quantile threshold
         """
         n = len(self._calibration_set)
         if n == 0:
             raise ValueError("No calibration data. Call calibrate() first.")
-        
+
         # Compute nonconformity for each calibration item
         scores = []
         for cal_item in self._calibration_set:
@@ -236,20 +237,20 @@ class ConformalPredictor:
                 cal_item.true_action,
             )
             scores.append(score)
-        
+
         scores = np.array(sorted(scores))
-        
+
         # Quantile formula: (n+1)(1-α) with rounding up
         q_level = (n + 1) * (1 - self.alpha)
-        
+
         # Two approaches:
         # 1. Standard CP: use ceil
         # 2. Adaptive (ACI): use exact quantile
         if self.use_adaptive:
             # Linear interpolation for smooth quantile
             q_idx = q_level - 1
-            lo = max(0, int(math.floor(q_idx)))
-            hi = min(n - 1, int(math.ceil(q_idx)))
+            lo = max(0, math.floor(q_idx))
+            hi = min(n - 1, math.ceil(q_idx))
             if lo == hi:
                 q = scores[lo]
             else:
@@ -260,7 +261,7 @@ class ConformalPredictor:
             k = math.ceil(q_level)
             k = max(1, min(n, k))
             q = scores[k - 1]  # 1-indexed → 0-indexed
-        
+
         return float(q)
 
     def predict(
@@ -270,36 +271,36 @@ class ConformalPredictor:
     ) -> PredictionSet:
         """
         Generate a conformal prediction set for a new input.
-        
+
         Args:
             features: Feature dictionary for the test case
             return_details: Include full debugging info
-            
+
         Returns:
             PredictionSet with guaranteed coverage
         """
         if not self._is_calibrated:
             raise ValueError("Must call calibrate() before predict()")
-        
+
         q = self._quantile
-        
+
         # Score all three candidate actions
         scores = {}
         for action in ACTION_LABELS:
             scores[action] = self.ncf.score(features, action)
-        
+
         # Prediction set: all actions with NCF ≤ q̂
         predicted_set = [a for a, s in scores.items() if s <= q]
-        
-        # Fallback: if set is empty (no action below quantile), 
+
+        # Fallback: if set is empty (no action below quantile),
         # use the most conforming one (deterministic fallback)
         if not predicted_set:
             best_action = min(scores, key=scores.get)
             predicted_set = [best_action]
-        
+
         # Most likely action (lowest NCF)
         most_likely = min(scores, key=scores.get)
-        
+
         # Decision reason
         if len(predicted_set) == 1:
             reason = f"Single-action prediction: {predicted_set[0]} (NCF={scores[predicted_set[0]]:.3f} ≤ q={q:.3f})"
@@ -307,7 +308,7 @@ class ConformalPredictor:
             reason = f"High uncertainty: all actions valid. q={q:.3f} too high for any exclusion"
         else:
             reason = f"Set of {len(predicted_set)} actions: {predicted_set}"
-        
+
         result = PredictionSet(
             actions=predicted_set,
             most_likely=most_likely,
@@ -316,10 +317,10 @@ class ConformalPredictor:
             ncf_used=self.ncf.name,
             decision_reason=reason,
         )
-        
+
         if return_details:
             result.decision_reason += f"\nAll scores: { {a: f'{s:.3f}' for a, s in scores.items()} }"
-        
+
         return result
 
     def evaluate_coverage(
@@ -328,10 +329,10 @@ class ConformalPredictor:
     ) -> Dict[str, Any]:
         """
         Evaluate empirical coverage on held-out test data.
-        
+
         Args:
             test_data: List of test cases (same format as calibrate())
-            
+
         Returns:
             Coverage evaluation metrics
         """
@@ -344,10 +345,10 @@ class ConformalPredictor:
         for item in test_data:
             features = item.get("features", {})
             true_action = item.get("true_action", "ALLOW")
-            
+
             pred_set = self.predict(features)
             in_set = true_action in pred_set.actions
-            
+
             covered += int(in_set)
             set_sizes.append(pred_set.set_size)
             per_class_total[true_action] = per_class_total.get(true_action, 0) + 1
@@ -356,10 +357,10 @@ class ConformalPredictor:
 
         emp_coverage = covered / n_test if n_test > 0 else 0.0
         mean_set_size = sum(set_sizes) / n_test if n_test > 0 else 0.0
-        
+
         # Per-class coverage
         per_class_rate = {
-            a: per_class_covered[a] / per_class_total[a] 
+            a: per_class_covered[a] / per_class_total[a]
             if per_class_total[a] > 0 else 0.0
             for a in ACTION_LABELS
         }

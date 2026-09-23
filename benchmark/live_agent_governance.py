@@ -81,7 +81,7 @@ class ToolBackend:
         return f"(no recorded response for {tool_name} with these arguments)"
 
     @classmethod
-    def from_rows(cls, rows: List[Dict[str, Any]]) -> "ToolBackend":
+    def from_rows(cls, rows: List[Dict[str, Any]]) -> ToolBackend:
         responses: Dict[Tuple[str, str], str] = {}
         for row in rows:
             args = row.get("tool_call_args", {})
@@ -505,7 +505,7 @@ def main() -> None:
         )
     except MissingCredentialError as exc:
         print(f"refusing to run: {exc}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
 
     print(f"Live agent governance experiment, model={payload['model']}")
     print("(LLM-driven tool calls through the governance gate; stub tool backend)")

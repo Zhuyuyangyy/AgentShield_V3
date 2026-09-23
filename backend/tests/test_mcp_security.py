@@ -7,20 +7,19 @@ Description Injection, Structural Validation, Semantic Attacks, Safety Scanning.
 """
 
 from app.security.mcp_detector import (
+    CRITICAL_CASCADE_DEPTH,
+    DEFAULT_AMPLIFICATION_FACTOR,
     MCPAttackDetector,
     MCPAttackType,
     MCPThreatReport,
     ThreatSeverity,
-    DEFAULT_AMPLIFICATION_FACTOR,
-    CRITICAL_CASCADE_DEPTH,
 )
 from app.security.tool_validator import (
     ToolDescriptionValidator,
     ToolValidationResult,
-    ViolationType,
     ViolationSeverity,
+    ViolationType,
 )
-
 
 # ============================================================================
 # MCPAttackDetector Tests
@@ -1071,7 +1070,7 @@ class TestMCPIntegration:
         final = detector.analyze_tool_call(
             tool_name="upload",
             tool_description="Upload to external server.",
-            chain_context=list(chain) + ["upload"],
+            chain_context=[*list(chain), "upload"],
         )
         # With 5 distinct tools in chain, cascade should trigger
         assert final.cascade_depth >= 3

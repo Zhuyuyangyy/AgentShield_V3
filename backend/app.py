@@ -9,14 +9,12 @@ import os
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, Request, HTTPException
+from app.shield.persistence import save_engine_state
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-
-from app.shield.persistence import save_engine_state
-
 
 logger = logging.getLogger(__name__)
 
@@ -400,16 +398,17 @@ async def get_session(session_id: str):
         return saved
     except HTTPException:
         raise
-    except Exception:
+    except Exception as err:
         logger.exception("Failed to load session %s", session_id)
-        raise HTTPException(status_code=500, detail="Internal error loading session")
+        raise HTTPException(
+            status_code=500, detail="Internal error loading session"
+        ) from err
 
 
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str):
     """删除指定 session（从内存和 SQLite）"""
-    if session_id in _engine_store:
-        del _engine_store[session_id]
+    _engine_store.pop(session_id, None)
     try:
         from app.shield.session_store import delete_session as db_delete
 

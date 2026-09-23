@@ -4,22 +4,23 @@ AgentShield V3 - FastAPI Routes
 """
 
 from __future__ import annotations
+
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.shield.storage import get_storage, StorageBackend
 from app.security.auth import verify_api_key
 from app.security.tenant import (
     get_current_tenant,
     tenant_scoped_key,
 )
-from app.shield.session_ttl import SessionTTLManager
 from app.shield.audit_log import AppendOnlyAuditLog
+from app.shield.session_ttl import SessionTTLManager
+from app.shield.storage import StorageBackend, get_storage
 
 logger = logging.getLogger(__name__)
 

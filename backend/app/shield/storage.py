@@ -184,11 +184,11 @@ class RedisStorage(StorageBackend):
             try:
                 import redis
                 self._client = redis.from_url(self.redis_url)
-            except ImportError:
+            except ImportError as err:
                 raise ImportError(
                     "Redis storage requires the 'redis' package. "
                     "Install with: pip install redis"
-                )
+                ) from err
         return self._client
 
     def _key(self, session_id: str) -> str:

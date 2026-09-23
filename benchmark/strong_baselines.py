@@ -90,15 +90,15 @@ class ContentKeywordsBaseline(Baseline):
 
     name = "content_keywords"
 
-    BLOCK_KEYWORDS = [
+    BLOCK_KEYWORDS = (
         r"password", r"secret", r"api_key", r"token",
         r"credit_card", r"ssn", r"id_card",
         r"external", r"exfil", r"webhook",
-    ]
-    REVIEW_KEYWORDS = [
+    )
+    REVIEW_KEYWORDS = (
         r"select\s+.+\s+from", r"dump", r"export",
         r"compress", r"archive", r"bulk",
-    ]
+    )
 
     def evaluate(self, event: ObservedToolEvent) -> BaselineResult:
         self._check_no_leakage(event)
@@ -121,8 +121,8 @@ class LocalContextBaseline(Baseline):
     name = "local_context"
 
     # Sensitive source -> external sink patterns
-    SENSITIVE_SOURCES = {"execute_sql", "cursor.execute", "database_query", "read_file"}
-    EXTERNAL_SINKS = {"send_email", "http_request", "upload_file", "webhook_call", "export_csv"}
+    SENSITIVE_SOURCES = frozenset({"execute_sql", "cursor.execute", "database_query", "read_file"})
+    EXTERNAL_SINKS = frozenset({"send_email", "http_request", "upload_file", "webhook_call", "export_csv"})
 
     def evaluate(self, event: ObservedToolEvent) -> BaselineResult:
         self._check_no_leakage(event)

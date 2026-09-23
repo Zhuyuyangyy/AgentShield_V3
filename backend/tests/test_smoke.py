@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ─── Import Tests ────────────────────────────────────────────────────────────
 
 class TestImports:
@@ -31,8 +30,8 @@ class TestImports:
 
     def test_import_behavior_graph_node_types(self):
         from app.shield.agent_behavior_graph import (
-            BehaviorNode,
             BehaviorEdge,
+            BehaviorNode,
             NodeRiskStatus,
         )
         assert BehaviorNode is not None
@@ -45,7 +44,7 @@ class TestImports:
         assert V3AuditLogger is not None
 
     def test_import_session_store(self):
-        from app.shield.session_store import init_db, save_session, load_session, list_sessions
+        from app.shield.session_store import init_db, list_sessions, load_session, save_session
         assert callable(init_db)
         assert callable(save_session)
         assert callable(load_session)
@@ -58,9 +57,9 @@ class TestImports:
 
     def test_import_routes_request_models(self):
         from app.api.routes import (
-            ProcessCallRequest,
             ForkBranchRequest,
             GovernanceStatusResponse,
+            ProcessCallRequest,
         )
         assert ProcessCallRequest is not None
         assert ForkBranchRequest is not None
@@ -195,10 +194,10 @@ class TestSanity:
         regression and must not be quietly skipped.
         """
         from app.cp import (
+            CROSS_ENTROPY_LABELS,
+            AdaptiveNCF,
             BehaviorGraphNCF,
             ScoreBasedNCF,
-            AdaptiveNCF,
-            CROSS_ENTROPY_LABELS,
         )
         from app.cp.core import ConformalPredictor, PredictionSet
 

@@ -114,9 +114,7 @@ def compute_graph_score(
         stage = "covert_exfil"
     elif has_supply_chain:
         stage = "supply_chain"
-    elif has_outbound and has_collection:
-        stage = "exfiltrate"
-    elif has_outbound:
+    elif (has_outbound and has_collection) or has_outbound:
         stage = "exfiltrate"
     elif has_burst and has_collection:
         stage = "burst_collect"

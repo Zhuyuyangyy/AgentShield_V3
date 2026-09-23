@@ -1,4 +1,5 @@
-import json, sys
+import json
+import sys
 sys.path.insert(0, r'D:\ZYY Project\AgentShield_V3\benchmark')
 with open(r'D:\ZYY Project\AgentShield_V3\benchmark\test_cases\test_cases_100.json', encoding='utf-8') as f:
     cases = json.load(f)

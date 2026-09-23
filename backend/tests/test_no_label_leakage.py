@@ -9,9 +9,7 @@ import ast
 from pathlib import Path
 
 import pytest
-
 from app.shield.schemas import FORBIDDEN_FIELDS, event_from_dict
-
 
 # Collect all Python source files in the shield and security modules
 SHIELD_DIR = Path(__file__).resolve().parent.parent / "app" / "shield"

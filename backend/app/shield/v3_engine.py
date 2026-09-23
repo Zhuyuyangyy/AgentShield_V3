@@ -13,15 +13,14 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
-from app.shield.provenance_signals import extract_provenance_signals
 from app.shield.artifacts import extract_entities
+from app.shield.counterfactual import CounterfactualEngine
+from app.shield.provenance_signals import extract_provenance_signals
 from app.shield.redaction import summarize_params as _summarize_params_redacted
 from app.shield.risk_extractor import RiskSignalExtractor
 from app.shield.risk_signals import GraphRiskState
-from app.shield.counterfactual import CounterfactualEngine
 from app.shield.taint_tracker import TaintTracker
 from app.shield.v3_audit_logger import V3AuditLogger
-
 
 # ── Data Classes ──────────────────────────────────────────────────────────────
 

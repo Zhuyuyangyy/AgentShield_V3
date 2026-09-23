@@ -32,7 +32,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-
 # ─── Constants ──────────────────────────────────────────────────────────────
 
 # MCP spec recommends tool names match this pattern.

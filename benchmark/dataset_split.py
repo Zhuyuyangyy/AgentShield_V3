@@ -61,7 +61,7 @@ def split_dataset_file(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(input_path, "r", encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         items = json.load(f)
 
     # Group by label for stratified split

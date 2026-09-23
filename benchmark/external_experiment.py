@@ -248,7 +248,7 @@ def predict_llm_guard(case: Dict[str, Any]) -> str:
             parts.append(f"{k}={v}")
     text = " \n ".join(parts)[:1024] or tool
     try:
-        _, results_valid, results_score = scan_prompt(scanners, text, fail_fast=False)
+        _prompt, results_valid, _scores = scan_prompt(scanners, text, fail_fast=False)
     except Exception as e:
         log.debug("llm_guard failed: %s", e)
         return "ALLOW"

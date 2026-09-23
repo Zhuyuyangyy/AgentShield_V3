@@ -4,7 +4,8 @@ NOTE: This benchmark uses risk_agent_shield_graph() from baselines.py to compute
 risk scores from OBSERVABLE features only (tool name, tool input, category).
 It does NOT feed ground-truth expected_risk_score into the engine.
 """
-import json, sys
+import json
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
