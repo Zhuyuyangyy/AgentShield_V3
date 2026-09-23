@@ -12,3 +12,6 @@ venv/
 *.sqlite3
 .ruff_cache/
 .mypy_cache/
+
+# Local agent harness state
+.reasonix/
