@@ -292,3 +292,60 @@ class TestProvenanceIsLabelFree:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestArtifactEventLinkage:
+    """An artifact must point back at the call that produced it."""
+
+    def test_produced_artifact_carries_the_call_event_id(self):
+        engine = _engine("link1")
+        result = engine.process_tool_call(
+            agent_id="a", tool_name="read_tool_result", params={},
+            risk_score=0.0, fuse_action="allow",
+            tool_output=INJECTED_OUTPUT, output_trust="untrusted",
+        )
+        assert result["produced_artifact_ids"], "no artifact recorded"
+        artifact = engine.taint_tracker.artifacts[result["produced_artifact_ids"][0]]
+        # Must be *this* call's event, not a freshly generated id.
+        assert artifact.source_event_id == result["event_id"]
+
+    def test_sink_reports_which_artifacts_it_consumed(self):
+        engine = _engine("link2")
+        engine.process_tool_call(
+            agent_id="a", tool_name="read_tool_result", params={},
+            risk_score=0.0, fuse_action="allow",
+            tool_output=INJECTED_OUTPUT, output_trust="untrusted",
+        )
+        sink = engine.process_tool_call(
+            agent_id="a", tool_name="send_email",
+            params={"to": INJECTED_ADDRESS, "body": "list"},
+            risk_score=0.0, fuse_action="allow",
+        )
+        assert sink["consumed_artifact_ids"], "sink did not record its sources"
+        for artifact_id in sink["consumed_artifact_ids"]:
+            assert artifact_id in engine.taint_tracker.artifacts
+
+    def test_evidence_chain_is_traversable(self):
+        """Blocked call -> consumed artifact -> producing call -> its output."""
+        engine = _engine("link3")
+        step1 = engine.process_tool_call(
+            agent_id="a", tool_name="search_calendar_events", params={"q": "x"},
+            risk_score=0.0, fuse_action="allow", user_intent=BENIGN_INTENT,
+        )
+        step2 = engine.process_tool_call(
+            agent_id="a", tool_name="read_tool_result", params={"id": "r"},
+            risk_score=0.0, fuse_action="allow", parent_node_id=step1["node_id"],
+            tool_output=INJECTED_OUTPUT, output_trust="untrusted",
+        )
+        step3 = engine.process_tool_call(
+            agent_id="a", tool_name="send_email",
+            params={"to": INJECTED_ADDRESS, "body": "list"},
+            risk_score=0.0, fuse_action="allow", parent_node_id=step2["node_id"],
+        )
+        assert step3["decision"] == "block"
+
+        sources = step3["consumed_artifact_ids"]
+        assert step2["produced_artifact_ids"][0] in sources
+        origin = engine.taint_tracker.artifacts[sources[0]]
+        assert origin.source_event_id == step2["event_id"]
+        assert INJECTED_ADDRESS in origin.introduced_entities

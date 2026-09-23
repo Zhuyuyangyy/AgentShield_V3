@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
 from app.shield.provenance_signals import extract_provenance_signals
+from app.shield.artifacts import extract_entities
 from app.shield.redaction import summarize_params as _summarize_params_redacted
 from app.shield.risk_extractor import RiskSignalExtractor
 from app.shield.risk_signals import GraphRiskState
@@ -135,6 +136,19 @@ class _BranchTree:
 # ── Score Helpers ─────────────────────────────────────────────────────────────
 
 
+def _flatten_params(params: Any) -> str:
+    """Flatten tool parameters to lowercase text for entity extraction."""
+    if params is None:
+        return ""
+    if isinstance(params, str):
+        return params.lower()
+    if isinstance(params, dict):
+        return " ".join(_flatten_params(v) for v in params.values())
+    if isinstance(params, (list, tuple, set)):
+        return " ".join(_flatten_params(v) for v in params)
+    return str(params).lower()
+
+
 def _action_for_score(score: float) -> str:
     if score >= 0.90:
         return "BLOCK"
@@ -220,22 +234,40 @@ class V3ShieldEngine:
         if user_intent:
             self.user_intent = str(user_intent)
 
-        # Record this call's output as an artifact before evaluating the next
-        # one, so a sink can ask where its arguments came from. An untrusted
-        # output recorded here is what makes injection visible downstream.
-        if tool_output is not None:
-            self.taint_tracker.observe(
-                content=tool_output,
-                origin_type="tool_output",
-                source_event_id=f"evt_{uuid.uuid4().hex[:8]}",
-                trust_level=output_trust,
-            )
-
         # Build observed event for signal extraction (PASS 1: local only).
         from app.shield.schemas import ObservedToolEvent
 
+        event_id = f"evt_{uuid.uuid4().hex[:8]}"
+
+        # Record this call's output as an artifact before evaluating the next
+        # one, so a sink can ask where its arguments came from. An untrusted
+        # output recorded here is what makes injection visible downstream.
+        #
+        # The artifact is tied to *this* event id, not a fresh one: the link
+        # from an artifact back to the call that produced it is what makes a
+        # decision explainable ("destination X came from the output of call Y").
+        produced_artifact_id = None
+        if tool_output is not None:
+            produced_artifact_id = self.taint_tracker.observe(
+                content=tool_output,
+                origin_type="tool_output",
+                source_event_id=event_id,
+                trust_level=output_trust,
+            ).artifact_id
+
+        # Artifacts whose entities this call actually consumes. Recorded so the
+        # graph can express "this sink read data that came from there".
+        consumed_artifact_ids = [
+            origin.artifact_id
+            for origin in (
+                self.taint_tracker.origin_of(entity)
+                for entity in extract_entities(_flatten_params(params))
+            )
+            if origin is not None
+        ]
+
         observed_event = ObservedToolEvent(
-            event_id=f"evt_{uuid.uuid4().hex[:8]}",
+            event_id=event_id,
             session_id=self.session_id,
             tool_name=tool_name,
             tool_input=params,
@@ -244,6 +276,10 @@ class V3ShieldEngine:
                 n.tool_name for n in self.behavior_graph.get_session_nodes()[-5:]
             ],
             chain_length=len(self.behavior_graph.get_session_nodes()),
+            produced_artifact_ids=(
+                [produced_artifact_id] if produced_artifact_id else []
+            ),
+            consumed_artifact_ids=consumed_artifact_ids,
         )
 
         # PASS 1 -- local risk from this event's own content, plus provenance
@@ -390,6 +426,7 @@ class V3ShieldEngine:
         return {
             "call_id": call_id,
             "node_id": node.node_id,
+            "event_id": event_id,
             "session_id": self.session_id,
             "decision": action.lower() if action != "HUMAN_REVIEW" else "review",
             "risk_level": _risk_level_for_score(final_risk),
@@ -401,6 +438,13 @@ class V3ShieldEngine:
             "whatif_result": whatif_result,
             "critical_nodes": [n.node_id for n in self.behavior_graph.get_critical_nodes()],
             "graph_risk_state": self._graph_risk_state.to_dict() if self._graph_risk_state else None,
+            # Evidence chain: what this call consumed and produced, so a
+            # blocked decision can be traced back to the artifact that
+            # introduced the offending destination.
+            "produced_artifact_ids": (
+                [produced_artifact_id] if produced_artifact_id else []
+            ),
+            "consumed_artifact_ids": consumed_artifact_ids,
         }
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:

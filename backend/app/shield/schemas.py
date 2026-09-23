@@ -39,6 +39,11 @@ class ObservedToolEvent:
     chain_length: int = 0
     previous_tools: List[str] = field(default_factory=list)
     risk_signals: List[Dict[str, Any]] = field(default_factory=list)
+    # Provenance: content artifacts this event produced (its own output) and the
+    # ones it drew arguments from. Lets the graph express "this sink read data
+    # that originated in that untrusted artifact".
+    produced_artifact_ids: List[str] = field(default_factory=list)
+    consumed_artifact_ids: List[str] = field(default_factory=list)
 
 
 @dataclass
