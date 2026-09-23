@@ -85,6 +85,22 @@ jobs:
       - name: Smoke test Docker image
         run: |
           docker run -d --name agentshield-test -p 8011:8011 agentshield-v3:latest
-          sleep 3
-          curl -sf http://localhost:8011/health || exit 1
-          docker stop agentshield-test
+          # Retry rather than a fixed sleep: a cold Python image plus pip
+          # install can take longer than 3s to bind the port, which is what
+          # made this step flaky.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8011/health; then
+              echo "health OK after ${i} attempt(s)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "container never became healthy"
+          docker logs agentshield-test
+          exit 1
+      - name: Collect container logs on failure
+        if: failure()
+        run: docker logs agentshield-test || true
+      - name: Stop container
+        if: always()
+        run: docker stop agentshield-test || true

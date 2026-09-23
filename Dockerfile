@@ -31,5 +31,11 @@ EXPOSE 8011
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8011/health')" || exit 1
 
-# Production entry point using uvicorn
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8011", "--workers", "1"]
+# Production entry point using uvicorn.
+#
+# The app package lives at /app/backend/app, so uvicorn must run with
+# /app/backend on sys.path. Running from /app would make `app` unimportable
+# (the earlier CMD `uvicorn backend.app.main:app` failed with
+# "ModuleNotFoundError: No module named 'app'" in the Docker smoke test).
+WORKDIR /app/backend
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8011", "--workers", "1"]
