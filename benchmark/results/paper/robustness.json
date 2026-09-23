@@ -301,11 +301,61 @@
           "BLOCK": 0
         }
       }
+    },
+    {
+      "baseline_name": "agentshield_production",
+      "dataset_name": "robustness",
+      "total": 4,
+      "correct": 0,
+      "accuracy": 0.0,
+      "macro_precision": 0.0,
+      "macro_recall": 0.0,
+      "macro_f1": 0.0,
+      "false_allow": 1,
+      "false_block": 0,
+      "review_rate": 0.25,
+      "per_label_metrics": {
+        "ALLOW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "HUMAN_REVIEW": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 2
+        },
+        "BLOCK": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 2
+        }
+      },
+      "confusion_matrix": {
+        "ALLOW": {
+          "ALLOW": 0,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "HUMAN_REVIEW": {
+          "ALLOW": 2,
+          "HUMAN_REVIEW": 0,
+          "BLOCK": 0
+        },
+        "BLOCK": {
+          "ALLOW": 1,
+          "HUMAN_REVIEW": 1,
+          "BLOCK": 0
+        }
+      }
     }
   ],
   "summary": {
     "total_adversarial_cases": 4,
     "best_robustness_f1": 0.2222
   },
-  "timestamp": 1782209050.5484865
+  "timestamp": 1790137108.4092448
 }

@@ -1,215 +1,191 @@
 {
   "experiment_name": "ablation_study",
-  "description": "Component-level ablation: remove graph propagation, risk signals, etc.",
+  "description": "Component ablation over the production engine configuration",
   "results": [
     {
-      "ablation_config": "full_system",
-      "baseline_name": "agentshield_graph_only",
+      "ablation_config": "full",
+      "engine_flags": {},
+      "baseline_name": "agentshield_production",
       "dataset_name": "test_cases_sci_600",
       "total": 600,
-      "correct": 600,
-      "accuracy": 1.0,
-      "macro_precision": 0.3333,
-      "macro_recall": 0.3333,
-      "macro_f1": 0.3333,
-      "false_allow": 0,
-      "false_block": 0,
-      "review_rate": 0.0,
+      "correct": 260,
+      "accuracy": 0.4333,
+      "macro_precision": 0.4412,
+      "macro_recall": 0.4442,
+      "macro_f1": 0.4349,
+      "false_allow": 24,
+      "false_block": 8,
+      "review_rate": 0.46,
       "per_label_metrics": {
         "ALLOW": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "support": 600
+          "precision": 0.3787,
+          "recall": 0.512,
+          "f1": 0.4354,
+          "support": 125
         },
         "HUMAN_REVIEW": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.4094,
+          "recall": 0.438,
+          "f1": 0.4232,
+          "support": 258
         },
         "BLOCK": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.5355,
+          "recall": 0.3825,
+          "f1": 0.4462,
+          "support": 217
         }
       },
       "confusion_matrix": {
         "ALLOW": {
-          "ALLOW": 600,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 64,
+          "HUMAN_REVIEW": 53,
+          "BLOCK": 8
         },
         "HUMAN_REVIEW": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 81,
+          "HUMAN_REVIEW": 113,
+          "BLOCK": 64
         },
         "BLOCK": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 24,
+          "HUMAN_REVIEW": 110,
+          "BLOCK": 83
         }
       }
     },
     {
-      "ablation_config": "no_graph_propagation",
-      "baseline_name": "agentshield_no_graph",
+      "ablation_config": "no_taint_tracking",
+      "engine_flags": {
+        "enable_taint_tracking": false
+      },
+      "baseline_name": "agentshield_production",
       "dataset_name": "test_cases_sci_600",
       "total": 600,
-      "correct": 566,
-      "accuracy": 0.9433,
-      "macro_precision": 0.3333,
-      "macro_recall": 0.3144,
-      "macro_f1": 0.3236,
-      "false_allow": 0,
-      "false_block": 0,
-      "review_rate": 0.0567,
+      "correct": 260,
+      "accuracy": 0.4333,
+      "macro_precision": 0.4412,
+      "macro_recall": 0.4442,
+      "macro_f1": 0.4349,
+      "false_allow": 24,
+      "false_block": 8,
+      "review_rate": 0.46,
       "per_label_metrics": {
         "ALLOW": {
-          "precision": 1.0,
-          "recall": 0.9433,
-          "f1": 0.9708,
-          "support": 600
+          "precision": 0.3787,
+          "recall": 0.512,
+          "f1": 0.4354,
+          "support": 125
         },
         "HUMAN_REVIEW": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.4094,
+          "recall": 0.438,
+          "f1": 0.4232,
+          "support": 258
         },
         "BLOCK": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.5355,
+          "recall": 0.3825,
+          "f1": 0.4462,
+          "support": 217
         }
       },
       "confusion_matrix": {
         "ALLOW": {
-          "ALLOW": 566,
-          "HUMAN_REVIEW": 34,
-          "BLOCK": 0
+          "ALLOW": 64,
+          "HUMAN_REVIEW": 53,
+          "BLOCK": 8
         },
         "HUMAN_REVIEW": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 81,
+          "HUMAN_REVIEW": 113,
+          "BLOCK": 64
         },
         "BLOCK": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 24,
+          "HUMAN_REVIEW": 110,
+          "BLOCK": 83
         }
       }
     },
     {
-      "ablation_config": "no_risk_signals",
-      "baseline_name": "tool_name_rules",
+      "ablation_config": "no_provenance",
+      "engine_flags": {
+        "enable_provenance": false
+      },
+      "baseline_name": "agentshield_production",
       "dataset_name": "test_cases_sci_600",
       "total": 600,
-      "correct": 373,
-      "accuracy": 0.6217,
-      "macro_precision": 0.3333,
-      "macro_recall": 0.2072,
-      "macro_f1": 0.2556,
-      "false_allow": 0,
-      "false_block": 82,
-      "review_rate": 0.2417,
+      "correct": 261,
+      "accuracy": 0.435,
+      "macro_precision": 0.4531,
+      "macro_recall": 0.4418,
+      "macro_f1": 0.4298,
+      "false_allow": 24,
+      "false_block": 8,
+      "review_rate": 0.5117,
       "per_label_metrics": {
         "ALLOW": {
-          "precision": 1.0,
-          "recall": 0.6217,
-          "f1": 0.7667,
-          "support": 600
+          "precision": 0.3678,
+          "recall": 0.512,
+          "f1": 0.4281,
+          "support": 125
         },
         "HUMAN_REVIEW": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.4202,
+          "recall": 0.5,
+          "f1": 0.4566,
+          "support": 258
         },
         "BLOCK": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
+          "precision": 0.5714,
+          "recall": 0.3134,
+          "f1": 0.4048,
+          "support": 217
         }
       },
       "confusion_matrix": {
         "ALLOW": {
-          "ALLOW": 373,
-          "HUMAN_REVIEW": 145,
-          "BLOCK": 82
+          "ALLOW": 64,
+          "HUMAN_REVIEW": 53,
+          "BLOCK": 8
         },
         "HUMAN_REVIEW": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 86,
+          "HUMAN_REVIEW": 129,
+          "BLOCK": 43
         },
         "BLOCK": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
-        }
-      }
-    },
-    {
-      "ablation_config": "keywords_only",
-      "baseline_name": "content_keywords",
-      "dataset_name": "test_cases_sci_600",
-      "total": 600,
-      "correct": 264,
-      "accuracy": 0.44,
-      "macro_precision": 0.3333,
-      "macro_recall": 0.1467,
-      "macro_f1": 0.2037,
-      "false_allow": 0,
-      "false_block": 158,
-      "review_rate": 0.2967,
-      "per_label_metrics": {
-        "ALLOW": {
-          "precision": 1.0,
-          "recall": 0.44,
-          "f1": 0.6111,
-          "support": 600
-        },
-        "HUMAN_REVIEW": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
-        },
-        "BLOCK": {
-          "precision": 0.0,
-          "recall": 0.0,
-          "f1": 0.0,
-          "support": 0
-        }
-      },
-      "confusion_matrix": {
-        "ALLOW": {
-          "ALLOW": 264,
-          "HUMAN_REVIEW": 178,
-          "BLOCK": 158
-        },
-        "HUMAN_REVIEW": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
-        },
-        "BLOCK": {
-          "ALLOW": 0,
-          "HUMAN_REVIEW": 0,
-          "BLOCK": 0
+          "ALLOW": 24,
+          "HUMAN_REVIEW": 125,
+          "BLOCK": 68
         }
       }
     }
   ],
   "summary": {
     "total_items": 600,
-    "configs_tested": 4
+    "configs_tested": 3,
+    "deltas_vs_full": [
+      {
+        "config": "full",
+        "macro_f1": 0.4349,
+        "delta_vs_full": 0.0,
+        "block_recall_delta_vs_full": 0.0
+      },
+      {
+        "config": "no_taint_tracking",
+        "macro_f1": 0.4349,
+        "delta_vs_full": 0.0,
+        "block_recall_delta_vs_full": 0.0
+      },
+      {
+        "config": "no_provenance",
+        "macro_f1": 0.4298,
+        "delta_vs_full": -0.0051,
+        "block_recall_delta_vs_full": 0.0
+      }
+    ]
   },
-  "timestamp": 1782209050.495813
+  "timestamp": 1790137106.0777106
 }

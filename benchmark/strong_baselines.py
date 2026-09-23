@@ -19,7 +19,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from app.shield.schemas import ObservedToolEvent, FORBIDDEN_FIELDS
 
@@ -254,22 +254,30 @@ class AgentShieldProductionBaseline(Baseline):
 
     name = "agentshield_production"
 
-    def __init__(self) -> None:
+    def __init__(self, engine_kwargs: Optional[Dict[str, Any]] = None) -> None:
         self._engine = None
         self._session_id = "fair-eval-session"
+        # Engine configuration for ablation runs. Empty for the full method;
+        # the ablation study sets one flag at a time so each row differs from
+        # the next by exactly that flag.
+        self._engine_kwargs: Dict[str, Any] = dict(engine_kwargs or {})
 
     def reset(self) -> None:
         """Drop cached engine state so evaluations stay independent."""
         from app.shield.v3_engine import V3ShieldEngine
 
         self._session_id = f"fair-eval-{uuid.uuid4().hex[:8]}"
-        self._engine = V3ShieldEngine(session_id=self._session_id)
+        self._engine = V3ShieldEngine(
+            session_id=self._session_id, **self._engine_kwargs
+        )
 
     def _ensure_engine(self):
         if self._engine is None:
             from app.shield.v3_engine import V3ShieldEngine
 
-            self._engine = V3ShieldEngine(session_id=self._session_id)
+            self._engine = V3ShieldEngine(
+                session_id=self._session_id, **self._engine_kwargs
+            )
         return self._engine
 
     def evaluate(self, event: ObservedToolEvent) -> BaselineResult:
