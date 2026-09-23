@@ -62,68 +62,6 @@ HIGH_RISK_TERMS = {
     "upload": 0.16,
     "users": 0.14,
 }
-
-# ─── Label isolation ────────────────────────────────────────────────────────
-# Benchmark metadata that must never reach a predictor. Anything here is either
-# a label, a grading field, or derived from one. Detectors see only what a
-# runtime caller could observe.
-FORBIDDEN_CASE_FIELDS = frozenset({
-    "label",
-    "expected_label",
-    "expected_action",
-    "expected_risk_score",
-    "attack_stage",
-    "attack_name",
-    "injection_goal",
-    "injection_task_id",
-    "target_functions",
-    "grading_function",
-    "chain_id",
-    "step_index",
-    "rationale",
-    "v3_specific",
-    "v3_standard_action",
-    # Derived from label==1 in the AgentDojo adapter.
-    "category",
-})
-
-
-def observable_view(case):
-    """Return a copy of ``case`` containing only runtime-observable fields.
-
-    Scorers in this module must consume this rather than the raw fixture dict.
-    ``category`` is stripped because at least one adapter derives it from the
-    ground-truth label (``attack_name if label == 1 else "benign"``), which
-    makes any category prior an indirect label leak -- even when the specific
-    prior table happens not to match the values in play.
-    """
-    return {k: v for k, v in case.items() if k not in FORBIDDEN_CASE_FIELDS}
-
-
-# ─── Label isolation ────────────────────────────────────────────────────
-# Benchmark metadata that must never reach a predictor: labels, grading
-# fields, and anything derived from them.
-FORBIDDEN_CASE_FIELDS = frozenset({
-    "label",
-    "expected_label",
-    "expected_action",
-    "expected_risk_score",
-    "attack_stage",
-    "attack_name",
-    "injection_goal",
-    "injection_task_id",
-    "target_functions",
-    "grading_function",
-    "chain_id",
-    "step_index",
-    "rationale",
-    "v3_specific",
-    "v3_standard_action",
-    # Label-derived in the AgentDojo adapter.
-    "category",
-})
-
-
 CATEGORY_PRIORS = {
     "sensitive_data_access": 0.48,
     "external_network_transfer": 0.50,
@@ -133,6 +71,7 @@ CATEGORY_PRIORS = {
     "governance_bypass": 0.58,
 }
 
+
 CHAIN_STAGE_BOOST = {
     "recon": 0.03,
     "collect": 0.09,
@@ -140,6 +79,19 @@ CHAIN_STAGE_BOOST = {
     "exfiltrate": 0.26,
     "single_call": 0.0,
 }
+
+
+# ─── Label isolation ────────────────────────────────────────────────────
+# The forbidden-field set and observable_view live in one place so this file,
+# external_experiment.py and schemas.py cannot drift apart. See
+# docs/research/EVALUATION_CONTRACT.md.
+from benchmark.evaluation_contract import (  # noqa: E402,F401
+    FORBIDDEN_CASE_FIELDS,
+    observable_view,
+)
+
+# Re-exported for callers that imported these from baselines historically.
+__all__ = ["observable_view", "FORBIDDEN_CASE_FIELDS"]
 
 
 def _infer_chain_position(text: str) -> str:

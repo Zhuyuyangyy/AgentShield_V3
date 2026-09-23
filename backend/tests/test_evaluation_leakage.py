@@ -26,9 +26,17 @@ from pathlib import Path
 
 import pytest
 
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from benchmark.evaluation_contract import observable_view  # noqa: E402
+
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
-_REPO_ROOT = _BACKEND_DIR.parent
 _BENCHMARK_DIR = _REPO_ROOT / "benchmark"
+
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
 
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
@@ -462,3 +470,177 @@ class TestAgentHarmIsLabelledAsProxy:
         for case in cases:
             assert case.get("source") == "agentharm_proxy"
             assert case.get("is_proxy") is True
+
+# ─── Evaluator boundary isolation (C.5-4) ─────────────────────────────────
+
+class TestEvaluatorBoundaryIsolation:
+    """The evaluator must hand predictors a sanitised observation.
+
+    Previously each predictor called observable_view() itself, so a new
+    predictor that forgot would silently receive labels. Isolation is now
+    enforced by the evaluator; these tests use a deliberately nosy predictor
+    that raises if it sees anything it should not.
+    """
+
+    FORBIDDEN = [
+        "label", "expected_label", "expected_action", "expected_risk_score",
+        "injection_goal", "attack_name", "injection_task_id",
+        "target_functions", "grading_function", "attack_stage",
+        "rationale", "chain_id", "step_index", "v3_specific",
+        "v3_standard_action", "category",
+    ]
+
+    def _nosy_predictor(self, seen):
+        def predictor(observation):
+            for key in self.FORBIDDEN:
+                assert key not in observation, (
+                    f"evaluator leaked {key!r} to the predictor"
+                )
+            seen.append(sorted(observation))
+            return "ALLOW"
+        return predictor
+
+    def test_evaluator_never_passes_labels_to_a_predictor(self):
+        mod = _load_external()
+        seen = []
+        case = {
+            "id": "L1",
+            "tool_name": "send_email",
+            "tool_input": {"to": "a@b.com"},
+            "label": 1,
+            "expected_label": 1,
+            "expected_action": "BLOCK",
+            "expected_risk_score": 0.97,
+            "injection_goal": "email attacker@example.com",
+            "attack_name": "direct",
+            "injection_task_id": "task-1",
+            "attack_stage": "exfiltrate",
+            "rationale": "data leaves the trust boundary",
+            "chain_id": "c-1",
+            "step_index": 3,
+            "v3_specific": True,
+            "v3_standard_action": "BLOCK",
+            "category": "direct",
+            "target_functions": ["send_email"],
+            "grading_function": "grade_x",
+        }
+        mod.evaluate_method("nosy", self._nosy_predictor(seen), [case])
+        assert seen, "predictor was never called"
+        assert seen[0] == ["id", "tool_input", "tool_name"]
+
+    def test_a_predictor_that_relies_on_labels_gets_nothing(self):
+        """A predictor cannot reconstruct the answer from what it receives."""
+        mod = _load_external()
+        captured = {}
+
+        def snooper(observation):
+            captured.update(observation)
+            return "ALLOW"
+
+        for label in (0, 1):
+            mod.evaluate_method("s", snooper, [{
+                "id": "x", "tool_name": "t", "tool_input": {},
+                "label": label, "expected_action": "BLOCK" if label else "ALLOW",
+                "expected_label": label,
+            }])
+        assert set(captured) == {"id", "tool_name", "tool_input"}
+
+# ─── Multi-step replay must build real graph edges (C.5-6) ────────────────
+
+class TestMultiStepReplayBuildsEdges:
+    """N tool calls must produce N nodes and N-1 edges.
+
+    The external harness used to replay steps without ``parent_node_id``, so
+    every step was an isolated node: no edges, no propagation, and "chain-aware"
+    evaluation silently degenerated into N independent single-call verdicts.
+    """
+
+    @staticmethod
+    def _multi_step_case(n=4):
+        return {
+            "id": "MS-1",
+            "agent_id": "a",
+            "tool_calls": [
+                {"tool_name": f"tool_{i}", "tool_input": {"i": i}} for i in range(n)
+            ],
+        }
+
+    def test_n_calls_produce_n_minus_1_edges(self):
+        from app.shield.v3_engine import V3ShieldEngine
+        mod = _load_external()
+
+        case = self._multi_step_case(4)
+        eng = V3ShieldEngine(session_id="edges_1")
+        mod._replay_on_engine(eng, observable_view(case))
+
+        graph = eng.behavior_graph
+        assert graph.summary()["total_nodes"] == 4
+        assert len(graph.edges) == 3
+
+    def test_unlinking_parents_collapses_the_graph(self):
+        """Negative control: without linkage the graph has no edges at all."""
+        from app.shield.v3_engine import V3ShieldEngine
+
+        case = self._multi_step_case(4)
+        eng = V3ShieldEngine(session_id="edges_2")
+        view = observable_view(case)
+        for tc in view["tool_calls"]:
+            eng.process_tool_call(
+                agent_id="a",
+                tool_name=tc["tool_name"],
+                params=tc["tool_input"],
+                risk_score=0.0,
+                fuse_action="allow",
+                # no parent_node_id -- the old behaviour
+            )
+        graph = eng.behavior_graph
+        assert graph.summary()["total_nodes"] == 4
+        assert len(graph.edges) == 0, (
+            "edges appeared without parent linkage; the test no longer "
+            "distinguishes chained from unlinked replay"
+        )
+
+    def test_single_step_observation_has_no_edges(self):
+        from app.shield.v3_engine import V3ShieldEngine
+        mod = _load_external()
+
+        case = {"id": "SS", "tool_name": "read_file", "tool_input": {"p": "/tmp"}}
+        eng = V3ShieldEngine(session_id="edges_3")
+        mod._replay_on_engine(eng, observable_view(case))
+        assert eng.behavior_graph.summary()["total_nodes"] == 1
+        assert len(eng.behavior_graph.edges) == 0
+
+    def test_multi_step_is_label_free(self):
+        mod = _load_external()
+        base = mod.predict_agentshield_full(self._multi_step_case(3))
+        mutated = dict(
+            self._multi_step_case(3),
+            label=1, expected_action="BLOCK", attack_name="direct",
+            injection_goal="x", category="direct",
+        )
+        assert mod.predict_agentshield_full(mutated) == base
+
+
+class TestNoFakeAblationEntry:
+    """An ablation must differ from the method it ablates (C.5-7)."""
+
+    def test_methods_contain_no_duplicate_implementation(self):
+        mod = _load_external()
+        names = [name for name, _ in mod.METHODS]
+        # The removed entry was named "AgentShield V3 (no special-case rules)".
+        assert not any("ablation" in n.lower() or "special-case" in n.lower()
+                       for n in names), names
+
+    def test_only_one_agentshield_method_is_registered(self):
+        mod = _load_external()
+        ours = [n for n, _ in mod.METHODS if "AgentShield" in n]
+        assert len(ours) == 1, f"expected exactly one AgentShield entry, got {ours}"
+
+    def test_full_method_is_the_production_engine(self):
+        """It must call the engine, not the benchmark heuristic scorer."""
+        source = (_BENCHMARK_DIR / "external_experiment.py").read_text(encoding="utf-8")
+        start = source.find("def predict_agentshield_full(")
+        body = source[start:source.find("\ndef ", start + 10)]
+        assert "V3ShieldEngine" in body
+        assert "risk_agent_shield_graph" not in body
+        assert "risk_score=0.0" in body

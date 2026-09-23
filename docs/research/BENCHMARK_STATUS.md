@@ -28,12 +28,18 @@ offline.
 |---|---|---|---|---|
 | `test_cases_v3_standard.json` | 100 | us (generated) | Action acc **23%**; 17% within ±0.15 | No |
 | SCI-600 via `fair_evaluate.py` | 600 | us (generated) | **0.4350** acc / **0.4298** macro-F1 (production baseline) | No |
-| AgentDojo (external) | 2000 | AgentDojo authors | **82.0%** attack recall, **26.2%** benign FPR, 0 BLOCK | Directionally |
-| AgentHarm (external) | 208 | UK AISI authors | **28.8%** recall, 0 BLOCK | Directionally |
+| AgentDojo (external), **verified subset** | 1500 (attack 1416 / benign 84) | AgentDojo authors | detection_recall **0.000**, block_recall **0.000**, benign_block_fpr 0.000, three_class_acc 0.056 | Directionally |
+| AgentDojo (external), full set | 2000 | AgentDojo authors | **pending** clean-harness rerun — not reported | — |
+| AgentHarm-derived proxy | 208 | UK AISI authors (grading metadata) | pending clean-harness rerun | Proxy only, never as AgentHarm benchmark performance |
 
 "Directionally" means: useful for comparing against baselines *in the same
-run*, not as an absolute capability claim. All four runs use the corrected,
+run*, not as an absolute capability claim. All runs use the corrected,
 label-free harness.
+
+Every self-authored row is a generated fixture, not evidence of
+generalisation. The AgentHarm row is a **metadata-derived proxy**: it
+synthesises one hypothetical call per `target_functions` entry, so it is not a
+runtime trajectory and cannot be described as label-free runtime evaluation.
 
 ## What the numbers actually say
 
@@ -71,10 +77,18 @@ inconsistent with the payload".
 
 **Cost of the previous approach:** the earlier weight table (0.25–0.55, from
 `e8070bd`) made BLOCK unreachable, so it was raised to 0.45–0.95 to make the
-benchmark number go up. That was fitting the fixture. The current symptom is
-the mirror image: 1571 of 1916 AgentDojo attacks land on HUMAN_REVIEW and
-**none** reach BLOCK. Any future weight change must be justified against an
-external set, with the before/after recorded here.
+benchmark number go up. That was fitting the fixture.
+
+The mirror-image symptom was measured on an ad-hoc engine run, **not** the
+committed harness, and described a different population and metric, so it is
+not carried forward as a current result: 1571 of 1916 AgentDojo attacks landed
+on HUMAN_REVIEW with none reaching BLOCK. On the clean harness the analogous
+figure is `block_recall = 0.000` at n=1500, with `confusion =
+{ALLOW: {ALLOW: 84}, BLOCK: {ALLOW: 1416}}` — nothing is flagged at all,
+because nothing observable distinguishes the two classes.
+
+Any future weight change must be justified against an external set, with the
+before/after recorded here.
 
 ## What to do before writing a paper
 

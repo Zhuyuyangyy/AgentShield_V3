@@ -110,7 +110,8 @@ pip install -r requirements.txt
 python -m pytest -q
 ```
 
-Expected output: `242 passed`
+Expected result: all tests pass. (The CI badge above reflects the current state;
+the count is deliberately not hardcoded here so it cannot go stale.)
 
 ### Starting the API Server
 
@@ -239,14 +240,6 @@ AgentShield_V3/
 | LLM-as-Judge | 25.17% | 18.08% | 0.00% |
 | **AgentShield (production pipeline)** | **43.50%** | **42.98%** | **31.34%** |
 
-### External benchmarks (labelled by their authors)
-
-These are the only measurements where the labels were not produced here. See
-`BENCHMARK_STATUS.md` for why AgentDojo and AgentHarm cannot be improved
-without label leakage.
-
-| Dataset | Samples | Attack recall | Benign FPR | BLOCK fired |
-|---------|---------|---------------|------------|-------------|
 ### External benchmarks (labelled by their authors, now label-free)
 
 Reproduced with `benchmark/external_experiment.py` after removing the two
@@ -254,7 +247,7 @@ leakage paths in it (a label-derived `category`, and `injection_goal` being
 fed to the LLM-Guard baseline). Metrics are the explicit ones defined in
 `docs/research/EVALUATION_CONTRACT.md`.
 
-**AgentDojo** (2,000 samples: 1,916 attack / 84 benign)
+**AgentDojo** — verified subset, n=1500 (attack 1416 / benign 84)
 
 | Metric | Value |
 |--------|-------|
@@ -263,8 +256,14 @@ fed to the LLM-Guard baseline). Metrics are the explicit ones defined in
 | benign_block_fpr | 0.000 |
 | three_class_accuracy | 0.056 |
 
+Full-suite (n=2000) rerun on the clean harness: **pending**. The figure above is
+what has actually been measured; the larger set has not been re-run since the
+harness was corrected and is not reported here rather than extrapolated.
+
 **AgentHarm-derived harmful-action proxy** (208 samples; see the proxy caveat
-in `BENCHMARK_STATUS.md`) — not yet re-measured on this harness revision.
+in `BENCHMARK_STATUS.md`) — not yet re-measured on this harness revision. This
+is a metadata-derived proxy, not a runtime trajectory, and must not be quoted
+as AgentHarm benchmark performance.
 
 The zeros are the finding, not a bug in the measurement. For a given AgentDojo
 sample the malicious and benign variants carry **identical** `tool_name` and
