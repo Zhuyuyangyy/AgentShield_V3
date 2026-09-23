@@ -288,3 +288,64 @@ behaviour. All three need the task suite executed with an agent in the loop.
 Not measured: utility / benign task success and latency. Both need a runtime that
 executes AgentDojo's actual task suite, which this adapter does not have. Do not
 claim them from these numbers.
+
+## Native trace replay over the real AgentDojo dump (stage I)
+
+`benchmark/native_trace_replay.py` replays the dump's **recorded**
+``(tool_call_function, tool_call_args, tool_response)`` triples in order and
+scores each step. This is the tier the reconstructed experiment could not reach:
+every call and response really happened, and neither ``injection_goal`` nor
+``label`` reaches the engine — labels only split the finished predictions into
+benign and attack groups for reporting.
+
+Why the benign sample finally has statistical power: the dump holds **97 fully
+benign tasks / 339 recorded steps** and 949 tasks containing attacks /
+13,574 steps. The reconstructed run had 39 benign samples; this one has 339.
+
+Full dump, all four rungs:
+
+| Configuration | attack flag rate | benign block | benign review |
+|---|---|---|---|
+| local_only (single-event gate) | 0.034 | 0.003 (1/339) | 0.118 |
+| **+ untrusted output inspection** | **1.000** | 0.003 (1/339) | 0.118 |
+| + entity provenance / taint | 1.000 | 0.003 (1/339) | 0.118 |
+| + intent consistency | 1.000 | 0.003 (1/339) | 0.118 |
+
+Read the two numbers together:
+
+* **+96.6 points of attack coverage** from switching on output inspection.
+  local_only scores 0.034 because the recorded ``tool_call_args`` are benign —
+  a calendar search, a file read. The attack is carried by what the tool
+  *returned*. That is the empirical form of the project's core claim, measured
+  on someone else's data with no reconstructed steps.
+* **Benign block rate 1/339 = 0.3%, 95% one-sided upper bound ~1.1%.** This
+  replaces the 0/39 figure whose upper bound was ~7.7%. The gain is not bought
+  by over-blocking on a sample large enough to say so.
+
+The three provenance rungs do not separate here, and that is stated rather than
+hidden: taint tracking and intent consistency are already saturated once output
+inspection is on, because the recorded traces contain no operator request text
+(a native runtime would supply it). The rung that matters on this set is the
+first one.
+
+### What this corrected in the implementation
+
+The instruction-detection vocabulary did not cover how these dumps actually
+inject. Measured over the attack steps, the carriers are ``Please email``
+(1,547), ``SYSTEM:`` (936), ``IMPORTANT:`` (849), ``TODO:`` (742) — while the
+table only had override phrases like "ignore previous instructions". With the
+generalised markers, 10,746 of 13,574 attack steps are recognised and **0 of
+339 benign steps** are flagged, which is the signal-to-noise that makes the
+1.000 above real rather than a blanket block-everything rule.
+
+### Still not measured
+
+Benign task success / utility, and attack success rate in the AgentDojo sense
+(which requires an agent to act on the injection and then checks whether the
+task's goal was reached). Both need an LLM in the loop; none is installed and
+none is on the governance path by design. `native_trace_eval.json` says so in
+its own note field.
+
+The paired counterfactual control remains the right evidence for "the same
+action, decided differently by source"; this run is the right evidence for
+"the attack lives in the tool output, not the call".

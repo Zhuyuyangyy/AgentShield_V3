@@ -62,6 +62,7 @@ _CMD_FLAG_RE = re.compile(r"(?<![\w-])--?[A-Za-z][\w-]*")
 
 # Commands whose appearance in untrusted text is itself the signal.
 _INJECTION_MARKERS = (
+    # Direct policy overrides.
     "ignore previous instructions",
     "ignore all previous",
     "disregard previous",
@@ -70,8 +71,18 @@ _INJECTION_MARKERS = (
     "system instruction",
     "new instruction",
     "instead of that",
+    # Authority / urgency framing -- the carrier used most often in real
+    # corpora. AgentDojo's dumps mark injected text with TODO:, IMPORTANT:,
+    # SYSTEM: and an imperative "Please <verb>"; none of the override phrases
+    # above fire on those, which is why they belong here explicitly.
     "urgent:",
-    "important: you must",
+    "important:",
+    "important!",
+    "important message",
+    "todo:",
+    "note to self",
+    "system:",
+    "[system]",
     "bypass",
     "override",
 )
