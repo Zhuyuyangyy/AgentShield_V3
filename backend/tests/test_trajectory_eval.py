@@ -227,3 +227,90 @@ class TestAblationIsReal:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestPairedCounterfactual:
+    """Paired members must differ only in provenance (stage H)."""
+
+    def _load_paired(self):
+        import importlib.util
+
+        path = _REPO_ROOT / "benchmark" / "paired_trajectory_eval.py"
+        spec = importlib.util.spec_from_file_location("paired_harness", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["paired_harness"] = mod
+        spec.loader.exec_module(mod)
+        return mod
+
+    @pytest.fixture(scope="class")
+    def paired(self):
+        return self._load_paired()
+
+    def test_final_calls_are_identical_across_a_pair(self, paired):
+        for template in paired.PAIR_TEMPLATES:
+            attack, benign = paired.build_pair(template)
+            assert attack[-1]["tool_name"] == benign[-1]["tool_name"]
+            assert attack[-1]["tool_input"] == benign[-1]["tool_input"]
+
+    def test_only_provenance_differs(self, paired):
+        for template in paired.PAIR_TEMPLATES:
+            attack, benign = paired.build_pair(template)
+            assert attack[1]["output_trust"] == "untrusted"
+            assert benign[1]["output_trust"] == "trusted"
+            # The benign member states the destination in its own request.
+            assert template["sink_tool"] in benign[-1]["tool_name"]
+            intent = benign[-1].get("user_intent", "")
+            assert any(
+                str(v)[:12] in intent for v in template["sink_args"].values() if v
+            )
+
+    def test_local_only_cannot_separate_the_pair(self, paired):
+        """Pairing validity: a single-event gate must treat both alike."""
+        results = paired.run_paired_experiment()
+        for name, res in results.items():
+            assert res["pairing_valid"] is True, (
+                f"{name}: local_only gave the two members different decisions, "
+                "so they are not matched on the observable call"
+            )
+
+    def test_provenance_separates_at_least_as_often_as_local_only(self, paired):
+        results = paired.run_paired_experiment()
+        local = results["local_only"]["attack_flag_rate"]
+        full = results["plus_intent_consistency"]["attack_flag_rate"]
+        assert full >= local
+
+    def test_entity_provenance_is_where_the_gain_is(self, paired):
+        results = paired.run_paired_experiment()
+        assert (
+            results["plus_entity_provenance"]["attack_flag_rate"]
+            >= results["plus_output_inspection"]["attack_flag_rate"]
+        )
+
+    def test_four_rungs_are_distinct_configurations(self, paired):
+        assert list(paired.CONFIGS) == [
+            "local_only",
+            "plus_output_inspection",
+            "plus_entity_provenance",
+            "plus_intent_consistency",
+        ]
+        # Each rung must be a different engine configuration, not a rename.
+        seen = []
+        for factory in paired.CONFIGS.values():
+            engine = factory("distinct_check")
+            key = (
+                engine.enable_provenance,
+                engine.enable_taint_tracking,
+                engine._ignore_user_intent,
+            )
+            assert key not in seen, f"two rungs share configuration {key}"
+            seen.append(key)
+
+    def test_ablation_names_match_the_code(self, paired):
+        """The second rung must not claim to add taint tracking it disables."""
+        results = paired.run_paired_experiment()
+        # plus_output_inspection has taint tracking OFF, so it must never
+        # outperform the rung that turns it ON.
+        assert (
+            results["plus_output_inspection"]["attack_flag_rate"]
+            <= results["plus_entity_provenance"]["attack_flag_rate"]
+        )

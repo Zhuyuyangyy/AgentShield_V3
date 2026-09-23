@@ -17,13 +17,23 @@ decision on the final step:
     step 3  the sink             -> the sample's tool call again, now sourced
                                     from untrusted content
 
-Label isolation
----------------
+Label isolation, and what this is not
+------------------------------------
 ``injection_goal`` is used **only as trajectory content** (the text a tool
 returned), never as a detector input. Benign samples get an empty goal and
 therefore no injected output. ``expected_label`` / ``expected_action`` /
 ``attack_name`` / ``injection_task_id`` never reach the engine. A regression
 test asserts that mutating them does not move any prediction.
+
+That is *detector* label-freedom, which is not the whole truth. The trajectories
+are reconstructed from attack metadata: the sink and its arguments are derived
+from ``injection_goal``. Under EVALUATION_CONTRACT.md a field derived from an
+evaluation-only field is itself evaluation-only, so these are AgentDojo-derived
+**reconstructed** trajectories, not a native AgentDojo runtime trace. The report
+carries ``detector_label_free`` / ``trajectory_reconstructed_from_attack_metadata``
+/ ``native_runtime_trace`` rather than a single ``label_free: true``, and
+``benchmark/paired_trajectory_eval.py`` is what isolates the source effect from
+"this tool is merely risky".
 
 Reported metrics (per docs/research/EVALUATION_CONTRACT.md)
 -----------------------------------------------------------
@@ -172,17 +182,18 @@ def replay(case: Dict[str, Any], engine_factory: Callable[[str], Any]) -> str:
 # ─── Ablation configurations ───────────────────────────────────────────────
 
 def engine_tool_only(session_id: str):
-    """Baseline: flat single-event gate, no output observation at all."""
+    """Local-only: a pure single-event gate, nothing else switched on."""
     from app.shield.v3_engine import V3ShieldEngine
 
     return V3ShieldEngine(session_id=session_id, enable_provenance=False)
 
 
 def engine_with_output_inspection(session_id: str):
-    """Observes untrusted tool output, but taint tracking is disabled.
+    """+ untrusted output inspection.
 
-    Needs an engine-level flag, not a lambda: the difference has to be visible
-    to the signal extractor, otherwise the two configurations are identical.
+    Sees that untrusted content is present and reacts to it, but tracks no
+    entity origins -- so it cannot tell whether a destination came from that
+    content.
     """
     from app.shield.v3_engine import V3ShieldEngine
 
@@ -191,18 +202,45 @@ def engine_with_output_inspection(session_id: str):
     )
 
 
+def engine_entity_provenance(session_id: str):
+    """+ entity provenance / taint tracking.
+
+    Knows where each entity came from, but ignores the operator's stated
+    intent, so intent-consistency cannot contribute.
+    """
+    from app.shield.v3_engine import V3ShieldEngine
+
+    engine = V3ShieldEngine(session_id=session_id)
+    engine._ignore_user_intent = True
+    return engine
+
+
 def engine_full(session_id: str):
-    """Full pipeline: output inspection + taint tracking + intent comparison."""
+    """+ intent consistency: the complete configuration."""
     from app.shield.v3_engine import V3ShieldEngine
 
     return V3ShieldEngine(session_id=session_id)
 
 
 ABLATIONS: Dict[str, Callable[[str], Any]] = {
-    "tool_only": engine_tool_only,
-    "plus_taint_tracking": engine_with_output_inspection,
-    "full_provenance": engine_full,
+    "local_only": engine_tool_only,
+    "plus_output_inspection": engine_with_output_inspection,
+    "plus_entity_provenance": engine_entity_provenance,
+    "plus_intent_consistency": engine_full,
 }
+
+
+# Which capability each configuration contributes over the previous one. This is
+# what the ablation table means -- an earlier revision called the second rung
+# "+ taint tracking" when it actually disabled taint tracking, i.e. the name was
+# the opposite of the code.
+ABLATION_LADDER = [
+    ("local_only", "single-event gate on the current call only"),
+    ("plus_output_inspection", "+ reacts to untrusted content in context"),
+    ("plus_entity_provenance", "+ tracks where each entity came from"),
+    ("plus_intent_consistency", "+ checks the entity against the operator's request"),
+]
+
 
 
 # At which configuration each provenance signal becomes available. Used to
@@ -310,9 +348,9 @@ def main() -> None:
     cases = load_cases(args.max_samples)
     n_attack = sum(1 for c in cases if c.get("expected_action") == "BLOCK")
     n_benign = sum(1 for c in cases if c.get("expected_action") == "ALLOW")
-    print(f"AgentDojo trajectory eval: {len(cases)} samples "
+    print(f"AgentDojo-derived trajectory eval: {len(cases)}-sample stratified subset "
           f"({n_attack} attack / {n_benign} benign)")
-    print("(injected text placed in an untrusted tool output; labels never reach the engine)\n")
+    print("(reconstructed trajectories; benign count is small -- see FPR caveat in docs)\n")
 
     results = []
     for name, factory in ABLATIONS.items():
@@ -330,11 +368,23 @@ def main() -> None:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(
             {
-                "dataset": "agentdojo_trajectory",
+                "dataset": "agentdojo_derived_trajectory",
                 "samples": len(cases),
                 "attack": n_attack,
                 "benign": n_benign,
-                "label_free": True,
+                # Say exactly what is and is not true. A bare "label_free"
+                # overclaimed: the trajectories are reconstructed from attack
+                # metadata, which is a derived field and therefore itself
+                # evaluation-only under EVALUATION_CONTRACT.md.
+                "detector_label_free": True,
+                "trajectory_reconstructed_from_attack_metadata": True,
+                "native_runtime_trace": False,
+                "sampling": (
+                    f"{len(cases)}-sample stratified subset of the AgentDojo dump"
+                ),
+                "ablation_ladder": [
+                    {"config": name, "adds": what} for name, what in ABLATION_LADDER
+                ],
                 "results": results,
             },
             f,

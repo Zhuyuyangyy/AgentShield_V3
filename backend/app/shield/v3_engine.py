@@ -210,6 +210,10 @@ class V3ShieldEngine:
         # distinguishes "the user asked for this" from "an untrusted artifact
         # asked for this" -- a distinction no single-event guardrail can make.
         self.user_intent: str = ""
+        # Ablation switch for the paired experiment: when set, recorded intents
+        # are ignored for scoring, which is what isolates the contribution of
+        # intent consistency from entity provenance.
+        self._ignore_user_intent = False
 
         self.audit_logger.log(
             event="V3_ENGINE_INIT",
@@ -465,7 +469,7 @@ class V3ShieldEngine:
             tool_name=tool_name,
             tool_input=tool_input,
             taint_tracker=self.taint_tracker,
-            user_intent_text=self.user_intent,
+            user_intent_text="" if self._ignore_user_intent else self.user_intent,
             track_taint=self.enable_taint_tracking,
         )
 

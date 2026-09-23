@@ -277,17 +277,25 @@ class TestProvenanceIsLabelFree:
         )
         clean = engine.process_tool_call(**base)
 
+        # A second, independent engine in the same state. The mutated call must
+        # run against *this* one, otherwise the test only re-runs on an engine
+        # that has already seen the clean call and proves nothing about
+        # independence.
         engine2 = _engine("lf2")
         engine2.process_tool_call(
             agent_id="a", tool_name="read_tool_result", params={},
             risk_score=0.0, fuse_action="allow",
             tool_output=INJECTED_OUTPUT, output_trust="untrusted",
         )
-        mutated = engine.process_tool_call(
+        mutated = engine2.process_tool_call(
             **dict(base), labels=["attack_stage=exfiltrate"],
         )
         assert mutated["risk_score"] == clean["risk_score"]
         assert mutated["decision"] == clean["decision"]
+
+        # And in the *same* engine, appending metadata must not change it either.
+        again = engine.process_tool_call(**dict(base), labels=["chain_id=c1"])
+        assert again["risk_score"] == clean["risk_score"]
 
 
 if __name__ == "__main__":
