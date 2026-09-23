@@ -21,6 +21,14 @@ class RiskSignalType(str, Enum):
     CREDENTIAL_ACCESS = "credential_access"
     CROSS_AGENT_DELEGATION = "cross_agent_delegation"
     POLICY_EVASION = "policy_evasion"
+    # ── Provenance / taint signals (stage D-F) ──────────────────────────
+    # These look at *where content came from*, which is what a single-event
+    # guardrail structurally cannot see.
+    UNTRUSTED_INSTRUCTION = "untrusted_instruction"
+    DESTINATION_PROVENANCE = "destination_provenance"
+    INTENT_ORIGIN_MISMATCH = "intent_origin_mismatch"
+    SENSITIVE_TO_EXTERNAL_FLOW = "sensitive_to_external_flow"
+    UNTRUSTED_TO_PRIVILEGED_ACTION = "untrusted_to_privileged_action"
 
 
 @dataclass
@@ -34,6 +42,9 @@ class RiskSignal:
     score: float  # 0.0 - 1.0
     evidence: List[str] = field(default_factory=list)
     source_event_id: str = ""
+    # Artifacts this signal was derived from. Provenance signals use it so a
+    # decision can be explained as "destination X first appeared in artifact Y".
+    artifact_ids: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -78,12 +89,18 @@ class GraphRiskState:
         Preserved invariant: when every component equals ``x`` and
         ``confidence == 1.0``, ``combined_risk == x``.
         """
+        # ``signals`` is part of the max, not decoration. Provenance signals
+        # (untrusted instruction, destination provenance) are appended by the
+        # engine after the graph-context state is built; leaving them out of the
+        # aggregate meant a 0.95 injection signal could accompany a 0.0 score.
         components = [
             self.local_risk,
             self.inherited_risk,
             self.path_risk,
             self.downstream_exposure,
         ]
+        if self.signals:
+            components.append(max(s.score for s in self.signals))
         peak = max(components) if components else 0.0
 
         if peak <= 0.0:

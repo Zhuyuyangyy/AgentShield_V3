@@ -13,10 +13,12 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
+from app.shield.provenance_signals import extract_provenance_signals
 from app.shield.redaction import summarize_params as _summarize_params_redacted
 from app.shield.risk_extractor import RiskSignalExtractor
 from app.shield.risk_signals import GraphRiskState
 from app.shield.counterfactual import CounterfactualEngine
+from app.shield.taint_tracker import TaintTracker
 from app.shield.v3_audit_logger import V3AuditLogger
 
 
@@ -181,6 +183,12 @@ class V3ShieldEngine:
         self._risk_extractor = RiskSignalExtractor()
         self._counterfactual_engine = CounterfactualEngine()
         self._graph_risk_state: Optional[GraphRiskState] = None
+        # Provenance: what entered this session, and with what trust level.
+        self.taint_tracker = TaintTracker(session_id=session_id)
+        # The operator's original request, when one was supplied. This is what
+        # distinguishes "the user asked for this" from "an untrusted artifact
+        # asked for this" -- a distinction no single-event guardrail can make.
+        self.user_intent: str = ""
 
         self.audit_logger.log(
             event="V3_ENGINE_INIT",
@@ -202,7 +210,27 @@ class V3ShieldEngine:
         fuse_action: str = "allow",
         parent_node_id: Optional[str] = None,
         labels: Optional[List[str]] = None,
+        tool_output: Optional[str] = None,
+        output_trust: Optional[str] = None,
+        user_intent: Optional[str] = None,
     ) -> Dict[str, Any]:
+        # The operator's request is recorded once; later calls reuse it. It is
+        # the baseline for intent-origin comparison, so it must be the *first*
+        # thing supplied rather than inferred.
+        if user_intent:
+            self.user_intent = str(user_intent)
+
+        # Record this call's output as an artifact before evaluating the next
+        # one, so a sink can ask where its arguments came from. An untrusted
+        # output recorded here is what makes injection visible downstream.
+        if tool_output is not None:
+            self.taint_tracker.observe(
+                content=tool_output,
+                origin_type="tool_output",
+                source_event_id=f"evt_{uuid.uuid4().hex[:8]}",
+                trust_level=output_trust,
+            )
+
         # Build observed event for signal extraction (PASS 1: local only).
         from app.shield.schemas import ObservedToolEvent
 
@@ -218,6 +246,23 @@ class V3ShieldEngine:
             chain_length=len(self.behavior_graph.get_session_nodes()),
         )
 
+        # PASS 1 -- local risk from this event's own content, plus provenance
+        # signals that need what the session has already seen.
+        local_state = self._risk_extractor.compute_graph_risk_state(
+            event=observed_event,
+            graph_inherited_risk=0.0,
+            graph_downstream_exposure=0.0,
+            graph_path_risk=0.0,
+        )
+        local_state.signals.extend(
+            extract_provenance_signals(
+                tool_name=tool_name,
+                tool_input=params,
+                taint_tracker=self.taint_tracker,
+                user_intent_text=self.user_intent,
+            )
+        )
+
         # PASS 2 -- insert into the graph at *local* risk and wire the parent
         # edge, so propagation has something to travel along.
         #
@@ -226,12 +271,6 @@ class V3ShieldEngine:
         # only after the decision (the previous order) meant propagation always
         # ran on a graph that already excluded the current call, so the gate
         # could never see it.
-        local_state = self._risk_extractor.compute_graph_risk_state(
-            event=observed_event,
-            graph_inherited_risk=0.0,
-            graph_downstream_exposure=0.0,
-            graph_path_risk=0.0,
-        )
         local_risk = local_state.combined_risk
 
         node = self.behavior_graph.add_tool_call_as_node(
@@ -266,14 +305,35 @@ class V3ShieldEngine:
             graph_downstream_exposure=graph_downstream,
             graph_path_risk=0.0,
         )
+        # Keep the provenance signals: this recomputation only rebuilds the
+        # graph-context signals, and dropping the provenance ones here would
+        # silently undo the injection detection.
+        self._graph_risk_state.signals.extend(
+            extract_provenance_signals(
+                tool_name=tool_name,
+                tool_input=params,
+                taint_tracker=self.taint_tracker,
+                user_intent_text=self.user_intent,
+            )
+        )
 
-        # PASS 4 -- govern on the propagated risk.
+        # PASS 4 -- govern on the propagated risk *and* the provenance signals.
         #
-        # The decision now uses the same number the graph exports for this
-        # node. An externally supplied score can raise it (independent
-        # evidence), never dilute it.
+        # ``effective_risk`` is what the graph exports for this node (local risk
+        # propagated along the edges). ``self._graph_risk_state.combined_risk``
+        # additionally carries the provenance signals, which is where prompt
+        # injection becomes visible -- an injected destination is not in the
+        # call's own content at all.
+        #
+        # Both are folded into the node in PASS 5, so the invariant from C.5-8
+        # still holds: the gate score equals the risk the graph exports for this
+        # node.
         supplied = max(0.0, min(float(risk_score), 1.0))
-        final_risk = max(0.0, min(max(effective_risk, supplied), 1.0))
+        provenance_risk = self._graph_risk_state.combined_risk
+        final_risk = max(
+            0.0,
+            min(max(effective_risk, provenance_risk, supplied), 1.0),
+        )
 
         call_id = f"call_{uuid.uuid4().hex[:8]}"
         action = _action_for_score(final_risk)
