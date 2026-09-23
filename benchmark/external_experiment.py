@@ -502,24 +502,21 @@ def main():
             }
         print()
 
-        # Key claim check
+        # Key claim check: the production pipeline against the strongest
+        # non-AgentShield baseline. The earlier "ablation check" compared the
+        # full method against an entry that had been deleted from METHODS, so
+        # it could never run.
         full = summary.get("AgentShield V3 (full)", {})
-        abl = summary.get("AgentShield V3 (no special-case rules)", {})
-        summary.get("llm-guard (real PyPI)", {})
-        if full and abl:
-            full_r = full["mean_block_recall"]
-            abl_r = abl["mean_block_recall"]
-            drop = full_r - abl_r
-            print(">>> ABLATION CHECK (the project's core claim):")
-            print(f"    Full AgentShield V3  block_recall: {full_r*100:.2f}%")
-            print(f"    Ablation (no special)  block_recall: {abl_r*100:.2f}%")
-            print(f"    Delta from removing special-case rules: {drop*100:+.2f} pp")
-            if drop < 0.05:
-                print("    -> Graph + chain carry the load (delta < 5 pp). CLAIM SUPPORTED.")
-            elif drop < 0.15:
-                print("    -> Partial: special-case rules matter, but graph+chain is meaningful.")
-            else:
-                print("    -> Special-case rules dominate. Graph+chain contribution marginal.")
+        guard = summary.get("llm-guard (real PyPI)", {})
+        if full and guard:
+            full_r = full.get("mean_block_recall", 0.0)
+            guard_r = guard.get("mean_block_recall", 0.0)
+            full_fa = full.get("mean_false_allow_rate", 0.0)
+            guard_fa = guard.get("mean_false_allow_rate", 0.0)
+            print(">>> BASELINE COMPARISON (block_recall / false_allow):")
+            print(f"    AgentShield V3 (full)   {full_r*100:.2f}% / {full_fa*100:.2f}%")
+            print(f"    llm-guard (real PyPI)   {guard_r*100:.2f}% / {guard_fa*100:.2f}%")
+            print(f"    block_recall delta: {(full_r - guard_r)*100:+.2f} pp")
             print()
 
         # Save results
