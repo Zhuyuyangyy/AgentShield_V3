@@ -352,12 +352,13 @@ data loading and any model time): p50 0.27 ms, p95 0.61 ms, p99 3.95 ms.
 | **AgentShield (production pipeline)** | **43.50%** | **42.98%** | **31.34%** | **24** |
 
 AgentShield does **not** win this table on Macro F1 — the keyword baseline
-does. Two caveats the label-shuffle control in `leakage.json` supplies: that
-baseline drops from 0.4900 to 0.3067 when labels stop correlating with the
-input (flagged as leakage), while AgentShield moves 0.4333 to 0.3733 (not
-flagged). On false-allow, AgentShield lets through 24 dangerous calls against
-the keyword baseline's 111. And the dataset is generated and labelled by this
-project, so it is a unit fixture, not evidence of generalisation.
+does. Two caveats: SCI-600 is generated and labelled by this project, so it is
+a unit fixture rather than evidence of generalisation; and the keyword
+baseline's lead on it says nothing about which approach generalises better.
+Prediction invariance across 3,360 metadata permutations (all seven methods,
+``changed_predictions = 0``) establishes evaluator isolation, not baseline
+ranking. AgentShield's provenance contribution is argued from the
+logged-trace and paired-trajectory experiments above, not from SCI-600.
 
 ### Paired counterfactual control
 
@@ -379,6 +380,14 @@ customer export to an external host, which the sensitive-to-external-flow rule
 flags at 0.95 regardless of who authorised it. Separating it would mean
 weakening that rule for the case where the operator explicitly asks for an
 exfiltration — which is exactly the open problem above.
+
+**What this establishes:** the same final tool call can receive different
+governance decisions when its source/context differs.
+
+**What it does not establish:** that entity provenance alone produced the
+separation. On this set the ``+ output inspection`` rung already accounts for
+most of it. The incremental effect of entity provenance should be read from the
+trajectory ablation above, not extrapolated from these pairs.
 
 ### Live agent experiment
 

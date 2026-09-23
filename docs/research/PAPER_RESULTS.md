@@ -33,23 +33,29 @@ why the comparison is not what it looks like.
 
 ### Why content_keywords wins here, and why that is not a capability
 
-The label-shuffle control in ``leakage.json`` answers this directly:
+SCI-600 is generated and labelled by this project, so it is a unit fixture
+rather than evidence of generalisation. ``content_keywords`` reaches a higher
+Macro-F1 than AgentShield on it, and that result should not be read as the
+keyword approach being better in general -- the fixture's phrasing and its
+labels are both ours.
 
-| Baseline | accuracy (labels intact) | accuracy (labels shuffled) | delta | leak suspected |
-|---|---|---|---|---|
-| content_keywords | 0.4900 | 0.3067 | **+0.1833** | **yes** |
-| agentshield_production | 0.4333 | 0.3733 | +0.0600 | no |
+What the label-shuffle control *used* to claim, and why it was withdrawn: an
+earlier revision reported that ``content_keywords`` drops from 0.4900 to 0.3067
+when labels are shuffled and concluded the baseline was reading the labels.
+That inference is invalid. Any classifier with predictive power scores lower
+when the ground truth is randomised, because correct answers stop correlating
+with the input. The measured drop says nothing about whether labels are
+accessed.
 
-Shuffling the labels costs ``content_keywords`` 18 percentage points and costs
-AgentShield 6. A baseline whose score collapses when the labels stop
-correlating with the input was reading the labels. AgentShield's score is not
-explained by them.
+The current leakage evidence is a prediction-invariance test
+(``benchmark/leakage_invariance.py``): evaluation-only metadata is permuted
+while the runtime observation is held fixed, and the prediction itself must be
+unchanged. Over 3,360 permutations across all seven comparison methods,
+``changed_predictions = 0`` and ``prediction_invariance_rate = 1.000000``. That
+test establishes evaluator isolation; it does not rank baselines.
 
-Note this is the *baseline's* leakage, not ours: ``content_keywords`` reads
-``category``, which the AgentDojo adapter once derived from ``label``. The
-SCI-600 fixtures also carry ``attack_stage`` and ``chain_id``, which the
-keyword scorer's category prior table happens to key on. So the strongest
-number on this dataset is the least trustworthy one.
+AgentShield's provenance contribution is argued from the logged-trace and
+paired-trajectory experiments, not from SCI-600.
 
 ### Where AgentShield is actually stronger
 

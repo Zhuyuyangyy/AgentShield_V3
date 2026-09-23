@@ -93,9 +93,15 @@ def event_from_dict(data: dict) -> ObservedToolEvent:
             # Don't overwrite an explicitly-provided schema field with an alias
             if mapped not in safe or k == mapped:
                 safe[mapped] = v
-    # Ensure required fields have values
+    # Ensure required fields have values.
+    #
+    # ``session_id`` deliberately falls back to ``data["session_id"]`` and NOT
+    # to ``chain_id``. ``chain_id`` is evaluation-only metadata (see
+    # FORBIDDEN_FIELDS above), so promoting it into an observable field would
+    # leak a hidden value into everything downstream of the event. This is the
+    # exact class of leak that benchmark/leakage_invariance.py checks for.
     safe.setdefault("event_id", data.get("id", data.get("case_id", "unknown")))
-    safe.setdefault("session_id", data.get("session_id", data.get("chain_id", "default")))
+    safe.setdefault("session_id", data.get("session_id", "default"))
     safe.setdefault("tool_name", data.get("tool_name", data.get("tool", "")))
     safe.setdefault("tool_input", data.get("tool_input", data.get("params", data.get("input", {}))))
     safe.setdefault("agent_id", data.get("agent_id", data.get("agent", "unknown")))

@@ -646,3 +646,153 @@ class TestNoFakeAblationEntry:
         assert "V3ShieldEngine" in body
         assert "risk_agent_shield_graph" not in body
         assert "risk_score=0.0" in body
+
+
+class TestPredictionInvarianceIsolation:
+    """The leakage test must assert prediction invariance, not accuracy drop.
+
+    The retired method compared accuracy on real vs shuffled labels and
+    inferred leakage from a drop. Any classifier with predictive power drops
+    under random labels, so that inference was invalid. These tests pin the
+    replacement.
+    """
+
+    def _load(self):
+        import importlib.util
+
+        path = _REPO_ROOT / "benchmark" / "leakage_invariance.py"
+        spec = importlib.util.spec_from_file_location("leakage_invariance", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["leakage_invariance"] = mod
+        spec.loader.exec_module(mod)
+        return mod
+
+    def _dataset(self):
+
+        path = _REPO_ROOT / "benchmark" / "test_cases" / "test_cases_sci_600.json"
+        if not path.exists():
+            pytest.skip("SCI-600 dataset not present")
+        return str(path)
+
+    def test_retired_metrics_are_not_produced(self):
+        mod = self._load()
+        payload = mod.run_invariance_test(self._dataset(), None, permutations=2, max_cases=4)
+        # The retired metrics must not be computed per method. They may still be
+        # *named* in ``retired_metrics``, which is the artifact recording that
+        # they were deliberately dropped.
+        for method, result in payload["per_method"].items():
+            for banned in ("accuracy_delta", "leakage_suspected", "shuffled_accuracy",
+                           "normal_accuracy", "shuffled_accuracy_delta"):
+                assert banned not in result, f"{method} still computes {banned}"
+        assert set(payload["retired_metrics"]) >= {
+            "accuracy_delta", "leakage_suspected", "shuffled_accuracy"
+        }
+
+    def test_production_prediction_is_invariant(self):
+        mod = self._load()
+        payload = mod.run_invariance_test(self._dataset(), None, permutations=4, max_cases=8)
+        assert payload["changed_predictions"] == 0
+        assert payload["prediction_invariance_rate"] == 1.0
+        for method, result in payload["per_method"].items():
+            assert result["changed_predictions"] == 0, method
+            assert result["isolated"] is True, method
+
+    def test_artifact_reports_required_fields(self):
+        mod = self._load()
+        payload = mod.run_invariance_test(self._dataset(), None, permutations=2, max_cases=3)
+        for key in ("cases_tested", "total_permutation_checks",
+                    "changed_predictions", "prediction_invariance_rate",
+                    "per_method"):
+            assert key in payload, key
+        # Per-method breakdown carries the permutation count and invariance.
+        for method, result in payload["per_method"].items():
+            assert "metadata_permutations" in result, method
+            assert "prediction_invariance_rate" in result, method
+
+    def test_malicious_predictor_never_sees_hidden_fields(self):
+        """A predictor that inspects the raw row must not receive it."""
+        import json as _json
+
+        from app.shield.schemas import event_from_dict
+
+        from benchmark.evaluation_contract import FORBIDDEN_CASE_FIELDS
+
+        with open(self._dataset(), encoding="utf-8") as f:
+            items = _json.load(f)[:5]
+
+        for item in items:
+            event = event_from_dict(item)
+            observable = vars(event)
+            for key in FORBIDDEN_CASE_FIELDS:
+                assert key not in observable, f"{key} reached the predictor"
+
+    def test_chain_id_is_not_promoted_into_session_id(self):
+        """chain_id is evaluation-only and must not leak into an observable.
+
+        ``event_from_dict`` once used ``chain_id`` as the session_id fallback,
+        which moved a hidden value into every downstream consumer.
+        """
+        from app.shield.schemas import event_from_dict
+
+        event = event_from_dict({
+            "id": "x",
+            "tool_name": "t",
+            "tool_input": {},
+            "chain_id": "SECRET_CHAIN",
+        })
+        assert "SECRET_CHAIN" not in event.session_id
+        assert event.session_id == "default"
+
+    def test_every_baseline_predictor_is_bound(self):
+        """ALL_BASELINES holds classes; they must be instantiated."""
+        mod = self._load()
+        predictors = mod._baseline_predictors()
+        names = [n for n, _ in predictors]
+        assert "tool_name_rules" in names
+        for name, predictor in predictors:
+            # A bound predictor answers ``predict(event)``; a class or a bare
+            # closure does not, which silently yielded zero checks before.
+            assert hasattr(predictor, "predict"), name
+
+    def test_production_predictor_uses_a_fresh_engine_per_call(self):
+        """Shared engine state would masquerade as an isolation violation."""
+        mod = self._load()
+        predictor = mod._ProductionPredictor()
+        from app.shield.schemas import event_from_dict
+
+        with open(self._dataset(), encoding="utf-8") as f:
+            import json as _json
+
+            items = _json.load(f)[:3]
+        events = [event_from_dict(i) for i in items]
+        first = [predictor.predict(e) for e in events]
+        # Re-running must give identical results: no accumulated state.
+        second = [predictor.predict(e) for e in events]
+        assert first == second
+
+    def test_permutation_covers_the_full_forbidden_registry(self):
+        from benchmark.evaluation_contract import FORBIDDEN_CASE_FIELDS
+
+        mod = self._load()
+        payload = mod.run_invariance_test(self._dataset(), None, permutations=1, max_cases=1)
+        assert set(payload["forbidden_fields_tested"]) == set(FORBIDDEN_CASE_FIELDS)
+        for field in ("label", "expected_action", "attack_name", "injection_goal",
+                      "chain_id", "step_index", "target_functions", "grading_function"):
+            assert field in payload["forbidden_fields_tested"], field
+
+    def test_mutation_actually_changes_metadata(self):
+        """A no-op mutation would make the whole test vacuous."""
+        import json as _json
+        import random
+
+        from benchmark.evaluation_contract import FORBIDDEN_CASE_FIELDS
+
+        mod = self._load()
+        with open(self._dataset(), encoding="utf-8") as f:
+            item = _json.load(f)[0]
+        mutated = mod._mutate_metadata(item, random.Random(0), FORBIDDEN_CASE_FIELDS)
+        changed = {
+            k for k in set(item) | set(mutated)
+            if k in FORBIDDEN_CASE_FIELDS and item.get(k) != mutated.get(k)
+        }
+        assert changed, "permutation changed no evaluation-only field"

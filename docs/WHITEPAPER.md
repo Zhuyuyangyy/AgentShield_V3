@@ -1,5 +1,12 @@
 # AgentShield V3.3 技术白皮书
 
+> [!WARNING]
+> An earlier revision of this table reported 75.33% action accuracy and 84.79%
+> BLOCK recall. Those figures are **withdrawn**: the harness that produced them
+> fed ground-truth scores into the engine and they cannot be reproduced. See
+> ``docs/research/BENCHMARK_STATUS.md``.
+
+
 ## 多智能体工具调用行为链风险治理与协议安全检测系统
 
 **版本**: V3.3  
@@ -264,7 +271,7 @@ I(i) = Sigma [R(j) * decay^(d(i,j))]  对所有上游节点j
 | Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% |
 | Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% |
 | Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% |
-| **AgentShield** | **75.33%** | **72.61%** | **84.79%** | **0.00%** | **6.40%** |
+| **AgentShield** | 43.33% | 42.98% | 31.34% | 24 | 8 |
 
 #### 5.1.2 Semi-Real-150数据集
 

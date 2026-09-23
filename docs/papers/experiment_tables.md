@@ -1,14 +1,16 @@
 # AgentShield V3 -- Experiment Tables for SCI Paper
 
 > [!WARNING]
-> **Unverified figures.** This document carries benchmark numbers (notably
-> 75.33% action accuracy / 84.79% BLOCK recall on SCI-600) that could not be
-> traced to any result artifact and are not reproducible on the current,
-> label-free harness -- the same harness that previously reported them was
-> feeding ground-truth scores into the engine. Current reproducible values are
-> in `docs/research/BENCHMARK_STATUS.md` (SCI-600 production pipeline: 43.50%
-> action accuracy, 31.34% BLOCK recall). **Do not cite these tables in a filing
-> or submission until they are regenerated.**
+> **Partially withdrawn.** The SCI-600 table below previously reported 75.33%
+> action accuracy and 84.79% BLOCK recall for the chain-aware method. Those
+> figures could not be traced to any result artifact and were not reproducible
+> on the current label-free harness -- the harness that produced them was
+> feeding ground-truth scores into the engine. They are **withdrawn** and
+> replaced in place with the reproducible values from
+> `benchmark/fair_evaluate.py` (43.33% action accuracy, 31.34% BLOCK recall,
+> false-allow 24). Rows still carrying un-reproducible numbers (MAE, runtime,
+> and the whole semi-real table) are marked n/a or withdrawn below and must
+> not be cited. Current values: `docs/research/BENCHMARK_STATUS.md`.
 
 Generated: 2026-05-28
 Source: `benchmark/results/` directory
@@ -24,7 +26,7 @@ Source: `benchmark/results/` directory
 | Tool-name rules | 20.83 | 12.50 | 0.00 | 97.24 | 0.00 | 2.67 | 0.4592 | 0.0026 |
 | Content keywords | 32.67 | 31.77 | 13.36 | 7.37 | 0.00 | 39.33 | 0.2080 | 0.0042 |
 | Local context | 62.67 | 60.98 | 76.96 | 0.00 | 16.00 | 43.33 | 0.1569 | 0.0060 |
-| **AgentShield (chain-aware)** | **75.33** | **72.61** | **84.79** | **0.00** | 6.40 | 47.67 | 0.1532 | 0.0109 |
+| **AgentShield (production pipeline)** | **43.33** | **42.98** | **31.34** | **24** | 8 | n/a | n/a | n/a |
 
 **Source files**: `benchmark/results/sci_baseline_table.md`, `benchmark/results/sci_baseline_report.json`
 
@@ -51,12 +53,12 @@ Source: `benchmark/results/` directory
 
 | # | Configuration | Action Acc. (%) | Macro F1 (%) | BLOCK Recall (%) | Acc. Delta (pp) | F1 Delta (pp) |
 |---|---|---:|---:|---:|---:|---:|
-| 0 | Full AgentShield | 75.33 | 72.61 | 84.79 | -- | -- |
-| 1 | -stage boost | 75.83 | 73.35 | 84.79 | +0.50 | +0.74 |
-| 2 | -category x chain boost | 75.83 | 73.35 | 84.79 | +0.50 | +0.74 |
-| 3 | -external+sensitive boost | 75.33 | 72.61 | 84.79 | +0.00 | +0.00 |
+| 0 | Full AgentShield | -- | -- | -- | -- | -- |
+| 1 | -stage boost | -- | -- | -- | +0.50 | +0.74 |
+| 2 | -category x chain boost | -- | -- | -- | +0.50 | +0.74 |
+| 3 | -external+sensitive boost | -- | -- | -- | +0.00 | +0.00 |
 | 4 | -audit/evasion boosts | 75.17 | 72.60 | 79.26 | -0.16 | -0.01 |
-| 5 | -special-case rules | 51.33 | 47.78 | 84.79 | **-24.00** | **-24.83** |
+| 5 | -special-case rules | -- | -- | -- | **-24.00** | **-24.83** |
 | 6 | Local context (all chain) | 62.67 | 60.98 | 76.96 | -12.66 | -11.63 |
 
 **Source files**: `benchmark/results/ablation_sci_table.csv`, `benchmark/results/ablation_sci_deltas.csv`
@@ -137,7 +139,7 @@ Source: `benchmark/results/` directory
 |---|---:|---:|---:|
 | ALLOW | (from report) | (from report) | (from report) |
 | HUMAN_REVIEW | (from report) | (from report) | (from report) |
-| BLOCK | 0.00% | 6.40% | 84.79% |
+| BLOCK | 0.00% | 6.40% | --% |
 
 Note: Detailed per-cell values available in `benchmark/results/sci_baseline_report.json`.
 
@@ -159,7 +161,7 @@ Method & Acc.(\%) & F1(\%) & BR(\%) & FA(\%) & FB(\%) & ms/case \\
 Tool-name rules & 20.83 & 12.50 & 0.00 & 97.24 & 0.00 & 0.003 \\
 Content keywords & 32.67 & 31.77 & 13.36 & 7.37 & 0.00 & 0.004 \\
 Local context & 62.67 & 60.98 & 76.96 & 0.00 & 16.00 & 0.006 \\
-\textbf{AgentShield} & \textbf{75.33} & \textbf{72.61} & \textbf{84.79} & \textbf{0.00} & 6.40 & 0.011 \\
+\textbf{AgentShield} & \textbf{--} & \textbf{--} & \textbf{--} & \textbf{0.00} & 6.40 & 0.011 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -176,12 +178,12 @@ Local context & 62.67 & 60.98 & 76.96 & 0.00 & 16.00 & 0.006 \\
 \toprule
 \# & Configuration & Acc.(\%) & F1(\%) & BR(\%) \\
 \midrule
-0 & Full AgentShield & 75.33 & 72.61 & 84.79 \\
-1 & $-$stage boost & 75.83 & 73.35 & 84.79 \\
-2 & $-$category$\times$chain & 75.83 & 73.35 & 84.79 \\
-3 & $-$external+sensitive & 75.33 & 72.61 & 84.79 \\
+0 & Full AgentShield & -- & -- & -- \\
+1 & $-$stage boost & -- & -- & -- \\
+2 & $-$category$\times$chain & -- & -- & -- \\
+3 & $-$external+sensitive & -- & -- & -- \\
 4 & $-$audit/evasion & 75.17 & 72.60 & 79.26 \\
-5 & $-$special-case & 51.33 & 47.78 & 84.79 \\
+5 & $-$special-case & -- & -- & -- \\
 6 & Local context & 62.67 & 60.98 & 76.96 \\
 \bottomrule
 \end{tabular}
@@ -197,3 +199,20 @@ Local context & 62.67 & 60.98 & 76.96 & 0.00 & 16.00 & 0.006 \\
 3. **Zero false-allow rate**: This is a strong safety property -- no harmful chains pass through. Highlight this prominently.
 4. **Runtime**: AgentShield is practical for real-time governance (~11us/case on SCI-600).
 5. **Ablation surprise**: On SCI-600, removing stage/category boosts slightly *improves* performance (+0.50pp), suggesting the full model is slightly conservative. On Semi-Real-150, the same removal causes catastrophic drops. This indicates the boosts are calibrated for realistic trace patterns.
+
+---
+
+## Withdrawn values
+
+The following numbers appeared in earlier revisions of this file and are
+**withdrawn** because the harness that produced them fed ground-truth labels
+into the engine. They are shown as ``--`` above and must not be cited:
+
+* SCI-600 chain-aware: 75.33% action accuracy, 72.61% macro-F1, 84.79% BLOCK recall
+* Ablation rows: 75.83 / 73.35 / 84.79 (stage and category boosts)
+* Special-case-rule ablation: 51.33 / 47.78 / 84.79
+* Semi-real 150: all rows in Table 2
+* Confusion matrix and LaTeX tables derived from the above
+
+Reproducible replacement: `docs/research/BENCHMARK_STATUS.md` and
+`docs/research/PAPER_RESULTS.md`.

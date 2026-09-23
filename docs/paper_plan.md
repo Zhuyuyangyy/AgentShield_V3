@@ -130,7 +130,7 @@ Generated on the deterministic SCI-600 dataset:
 | Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% |
 | Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% |
 | Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% |
-| AgentShield chain-aware | 75.33% | 72.61% | 84.79% | 0.00% | 6.40% |
+| AgentShield (production pipeline) | 43.33% | 42.98% | 31.34% | 24 | 8 |
 
 These results are useful as an internal milestone, not yet as final SCI evidence. Before submission, add ablations and at least one semi-real trace source so the evaluation is not only generated from deterministic rules.
 

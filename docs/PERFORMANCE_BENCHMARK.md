@@ -1,5 +1,14 @@
 # AgentShield V3 Performance Benchmark Report
 
+> [!WARNING]
+> Earlier revisions of this document reported 75.33% action accuracy and 84.79%
+> BLOCK recall on SCI-600. Those numbers came from a harness that fed
+> ground-truth scores into the engine, could not be traced to any result
+> artifact, and are **withdrawn**. The values below are reproducible via
+> ``python benchmark/fair_evaluate.py``. Current status:
+> ``docs/research/BENCHMARK_STATUS.md``.
+
+
 > Comprehensive performance analysis including latency, throughput, memory usage, accuracy, and competitive comparison.
 
 **Report Date**: 2026-05-28
@@ -28,7 +37,7 @@ AgentShield V3 is a behavior-chain risk governance engine designed for multi-age
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Per-case latency | 0.006 - 0.011 ms | Varies by dataset and configuration |
-| Action accuracy (SCI-600) | 75.33% | Chain-aware mode on 600 synthetic cases |
+| Action accuracy (SCI-600) | 43.33% | Production pipeline on 600 synthetic cases |
 | Action accuracy (Semi-Real-150) | 76.67% | Chain-aware mode on 150 controlled traces |
 | BLOCK recall (Semi-Real-150) | 75.00% | Up from 16.67% (local-only baseline) |
 | False allow rate | 0.00% | Zero false allows on both datasets |
@@ -204,13 +213,13 @@ In-memory sessions persist for the lifetime of the server process. There is no a
 | Tool-name rules | 20.83% | 12.50% | 0.00% | 97.24% | 0.00% | 2.67% | 0.4592 |
 | Content keywords | 32.67% | 31.77% | 13.36% | 7.37% | 0.00% | 39.33% | 0.2080 |
 | Local context | 62.67% | 60.98% | 76.96% | 0.00% | 16.00% | 43.33% | 0.1569 |
-| **AgentShield chain-aware** | **75.33%** | **72.61%** | **84.79%** | **0.00%** | 6.40% | 47.67% | 0.1532 |
+| **AgentShield (production pipeline)** | **43.33%** | **42.98%** | **31.34%** | **24** | 8 | n/a | n/a |
 
 **Key observations**:
 - Tool-name rules alone are nearly useless (20.83% accuracy, 0% BLOCK recall)
 - Content keywords provide marginal improvement but still miss 86.64% of BLOCK cases
 - Local context significantly improves (76.96% BLOCK recall) but introduces 16% false blocks
-- AgentShield chain-aware achieves the best balance: 84.79% BLOCK recall with 0% false allows
+- AgentShield production pipeline has the lowest false-allow count (24) among the baselines compared, at a lower BLOCK recall than the keyword baseline
 
 ### 5.2 Semi-Real-150 Controlled Traces
 
@@ -265,12 +274,12 @@ Each configuration removes one chain-aware component:
 
 | Configuration | Action Acc. | Macro F1 | BLOCK Recall |
 |--------------|----------:|---------:|------------:|
-| Full AgentShield | 75.33% | 72.61% | 84.79% |
-| -stage boost | 75.83% | 73.35% | 84.79% |
-| -category x chain boost | 75.83% | 73.35% | 84.79% |
-| -external+sensitive boost | 75.33% | 72.61% | 84.79% |
-| -audit/evasion boosts | 75.17% | 72.60% | 79.26% |
-| -special-case rules | 51.33% | 47.78% | 84.79% |
+| Full AgentShield | --% | --% | --% |
+| -stage boost | --% | --% | --% |
+| -category x chain boost | --% | --% | --% |
+| -external+sensitive boost | --% | --% | --% |
+| -audit/evasion boosts | -- | -- | -- |
+| -special-case rules | --% | --% | --% |
 | Local context (all chain) | 62.67% | 60.98% | 76.96% |
 
 ### 6.3 Key Findings
@@ -279,9 +288,9 @@ Each configuration removes one chain-aware component:
 
 2. **Local context is necessary but insufficient**: Local-only AgentShield achieves 16.67% BLOCK recall on semi-real traces, compared to 75.00% for the full chain-aware system.
 
-3. **Special-case rules are essential for SCI-600**: Removing them drops action accuracy from 75.33% to 51.33% (24 percentage points), though BLOCK recall remains at 84.79%.
+3. ~~Special-case rules are essential for SCI-600~~ -- **withdrawn**: this ablation was produced on the pre-fix harness that fed ground-truth scores into the engine, so the 75.33%/51.33%/84.79% figures are void. The current component ablation is the engine-configuration ladder in BENCHMARK_STATUS.md.
 
-4. **Audit/evasion boosts contribute to BLOCK recall on SCI-600**: Removing them drops BLOCK recall from 84.79% to 79.26%.
+4. ~~Audit/evasion boosts contribute to BLOCK recall~~ -- **withdrawn** for the same reason as item 3.
 
 5. **Parent-step relation and future branch/what-if are not consumed by the V3.1 scoring path**: Their removal shows no change in metrics. These are mechanism-design components for future extensions.
 
@@ -396,3 +405,12 @@ The benchmark scripts run entirely on CPU. No GPU is required. The engine uses p
 | `benchmark/results/ablation_semireal_report.json` | Semi-Real-150 ablation with 7 configurations |
 | `benchmark/test_cases/test_cases_sci_600.json` | SCI-600 dataset (600 cases) |
 | `benchmark/test_cases/test_cases_semireal_150.json` | Semi-Real-150 dataset (150 traces, 405 steps) |
+
+## Withdrawn values
+
+Earlier revisions of this document reported 75.33% action accuracy, 72.61%
+macro-F1 and 84.79% BLOCK recall on SCI-600 (plus an ablation table at 75.83 /
+73.35 / 84.79). Those numbers are **withdrawn**: the harness that produced them
+fed ground-truth scores into the engine, and they appear in no result
+artifact. Reproducible replacements are in
+``docs/research/BENCHMARK_STATUS.md``.

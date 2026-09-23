@@ -13,7 +13,6 @@ Runs all experiments needed for the SCI paper:
 from __future__ import annotations
 
 import json
-import random
 import sys
 import time
 from dataclasses import dataclass, field
@@ -218,73 +217,31 @@ def run_ablation_study(
 def run_leakage_test(
     dataset_path: str,
     output_path: Optional[str] = None,
-) -> ExperimentResult:
-    """Prove that baselines do NOT access hidden labels.
+    permutations: int = 8,
+    max_cases: int = 60,
+):
+    """Report evaluator isolation via prediction invariance.
 
-    Strategy: compare baseline performance on:
-    1. Normal events (with all observable fields)
-    2. Shuffled forbidden fields (should not change results if no leakage)
+    The previous implementation compared accuracy on real labels against
+    accuracy on shuffled labels and inferred ``leakage_suspected`` from a large
+    drop. That inference does not hold: any classifier with predictive power
+    scores lower when the ground truth is random, so the drop measures
+    dependence on meaningful labels, not access to them. It is retired.
+
+    The current test permutes evaluation-only metadata while holding the
+    runtime observation fixed, and requires the prediction itself to be
+    unchanged. Implementation and artifact format live in
+    ``benchmark/leakage_invariance.py``; this wrapper keeps the experiment
+    pipeline's entry point stable.
     """
-    with open(dataset_path, encoding="utf-8") as f:
-        raw_items = json.load(f)
+    from benchmark.leakage_invariance import run_invariance_test
 
-    events = [event_from_dict(item) for item in raw_items]
-    ground_truths = [ground_truth_from_dict(item) for item in raw_items]
-
-    # Test all baselines
-    results = []
-    for name in ALL_BASELINES:
-        baseline = get_baseline(name)
-
-        # Normal evaluation
-        normal_result = evaluate_baseline(baseline, events, ground_truths, "normal")
-
-        # Evaluation with shuffled ground truth labels
-        # Shuffle only the labels, keeping event_id pairing intact
-        from app.shield.schemas import HiddenGroundTruth
-        labels = [gt.label for gt in ground_truths]
-        random.shuffle(labels)
-        shuffled_gt = [
-            HiddenGroundTruth(
-                event_id=gt.event_id,
-                attack_stage=gt.attack_stage,
-                chain_id=gt.chain_id,
-                step_index=gt.step_index,
-                label=label,
-                rationale=gt.rationale,
-            )
-            for gt, label in zip(ground_truths, labels)
-        ]
-        shuffled_result = evaluate_baseline(baseline, events, shuffled_gt, "shuffled")
-
-        # If baseline is leaking, accuracy on normal should be much higher than shuffled
-        # If no leakage, accuracy difference should be small
-        accuracy_delta = normal_result.accuracy - shuffled_result.accuracy
-
-        results.append({
-            "baseline_name": name,
-            "normal_accuracy": normal_result.accuracy,
-            "shuffled_accuracy": shuffled_result.accuracy,
-            "accuracy_delta": round(accuracy_delta, 4),
-            "leakage_suspected": accuracy_delta > 0.15,
-        })
-
-    experiment = ExperimentResult(
-        experiment_name="leakage_test",
-        description="Verify no baseline accesses hidden ground-truth labels",
-        results=results,
-        summary={
-            "total_items": len(events),
-            "baselines_with_suspected_leakage": sum(1 for r in results if r["leakage_suspected"]),
-            "all_clean": not any(r["leakage_suspected"] for r in results),
-        },
+    return run_invariance_test(
+        dataset_path,
+        output_path,
+        permutations=permutations,
+        max_cases=max_cases,
     )
-
-    if output_path:
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(experiment.to_dict(), f, indent=2, ensure_ascii=False)
-
-    return experiment
 
 
 # ─── Experiment 4: Robustness Test ───────────────────────────────────────────
@@ -631,7 +588,7 @@ def run_all_experiments(
     print("[3/7] Running leakage test...")
     all_results["leakage"] = run_leakage_test(
         dataset_path, str(output_dir / "leakage.json")
-    ).to_dict()
+    )
 
     # 4. Robustness
     print("[4/7] Running robustness test...")
