@@ -74,12 +74,18 @@ def extract_provenance_signals(
     tool_input: Dict[str, Any],
     taint_tracker,
     user_intent_text: str = "",
+    track_taint: bool = True,
 ) -> List[RiskSignal]:
     """Return the provenance signals for one tool call.
 
     ``taint_tracker`` holds what has been observed so far; ``user_intent_text``
     is the operator's original request, used to tell "the user asked for this"
     from "an untrusted artifact asked for this".
+
+    ``track_taint=False`` keeps only the signals that need the *presence* of
+    untrusted content, and drops the ones that need per-entity origins
+    (destination provenance, intent mismatch, taint propagation). That is what
+    makes the ablation a real difference rather than the same code twice.
     """
     if taint_tracker is None:
         return []
@@ -109,7 +115,7 @@ def extract_provenance_signals(
     # A destination that first appeared in untrusted content is the classic
     # injection outcome: the operator never named it.
     tainted_origins = taint_tracker.untrusted_origin_of(input_text)
-    if tainted_origins:
+    if tainted_origins and track_taint:
         signals.append(RiskSignal(
             signal_type=RiskSignalType.DESTINATION_PROVENANCE,
             score=0.90,
@@ -124,11 +130,14 @@ def extract_provenance_signals(
     # ── 3. Intent-origin mismatch ─────────────────────────────────────────
     # The arguments come from untrusted content, but the same values are absent
     # from the operator's request.
-    if tainted_origins and intent_text:
-        intent_entities = {
-            e.lower() for e in taint_tracker.untrusted_origin_of(intent_text)
-        }
-        novel = [o for o in tainted_origins if o.entity not in intent_entities]
+    if tainted_origins and intent_text and track_taint:
+        # Compare against the intent *text*, not against the tracker: what
+        # matters is whether the operator ever mentioned this destination.
+        intent_text_l = intent_text.lower()
+        novel = [
+            o for o in tainted_origins
+            if o.entity and o.entity.lower() not in intent_text_l
+        ]
         if novel:
             signals.append(RiskSignal(
                 signal_type=RiskSignalType.INTENT_ORIGIN_MISMATCH,
@@ -173,7 +182,7 @@ def extract_provenance_signals(
         for entity in artifact.introduced_entities:
             if entity and entity in input_text.lower():
                 propagated.append(entity)
-    if propagated:
+    if propagated and track_taint:
         signals.append(RiskSignal(
             signal_type=RiskSignalType.CROSS_AGENT_DELEGATION,
             score=0.80,

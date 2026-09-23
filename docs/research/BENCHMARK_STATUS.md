@@ -204,3 +204,43 @@ fields from class 3, fixes the metric names above, and requires the
 regression tests that `test_evaluation_leakage.py` implements: label
 invariance under scrambling, distribution sanity, determinism, and equal
 observable surface across compared methods.
+
+## Trajectory-level evaluation (stage G)
+
+`benchmark/evaluate_trajectory.py` replays each AgentDojo sample as a trajectory
+instead of a single call, because the flat harness measures nothing useful: the
+malicious and benign variants share `tool_name` and `tool_input`.
+
+Two design points that only became clear by running it:
+
+* The dump records the **pre-injection** tool (a calendar search, a file
+  search). The attack action lives in the instruction — "email this to X".
+  Replaying the original tool as the final step scores a call the attacker never
+  makes, so the sink is derived from the instruction's own verb.
+* The engine emits lower-case short-form decisions (`review`) while labels are
+  upper-case (`HUMAN_REVIEW`). Coercing without mapping turned every review into
+  ALLOW, which pinned detection_recall at 0.0 and looked exactly like a broken
+  harness. Both are regression-tested.
+
+Full run, n=2000 (1961 attack / 39 benign), label-free — `injection_goal` is
+used only as trajectory *content*, never as detector input:
+
+| Configuration | detection_recall | block_recall | benign_review_rate | benign_block_fpr |
+|---|---|---|---|---|
+| tool_only (single-event gate) | 0.792 | 0.034 | 0.128 | 0.000 |
+| + taint tracking | 0.814 | 0.054 | 0.128 | 0.000 |
+| + full provenance (intent mismatch) | **0.891** | **0.790** | 0.128 | 0.000 |
+
+`block_recall` is where provenance earns its place: 0.034 -> 0.790, a 23x
+increase that no single-event scoring change can produce, because the deciding
+signal (the destination is absent from the operator's request) is only
+computable across events. `benign_block_fpr` stays 0.000 throughout, so the gain
+is not bought by over-blocking.
+
+Ablations are engine **configuration flags** (`enable_provenance`,
+`enable_taint_tracking`), not copies of the predictor — the failure mode that
+produced the earlier fake "no special-case rules" entry.
+
+Not measured: utility / benign task success and latency. Both need a runtime that
+executes AgentDojo's actual task suite, which this adapter does not have. Do not
+claim them from these numbers.

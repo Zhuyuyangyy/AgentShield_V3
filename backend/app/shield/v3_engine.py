@@ -180,12 +180,19 @@ class V3ShieldEngine:
         risk_threshold: float = 0.70,
         max_branches: int = 5,
         enable_counterfactual: bool = True,
+        enable_provenance: bool = True,
+        enable_taint_tracking: bool = True,
     ):
         self.session_id = session_id
         self.engine_id = f"v3engine_{uuid.uuid4().hex[:8]}"
         self.risk_threshold = risk_threshold
         self.max_branches = max_branches
         self.enable_counterfactual = enable_counterfactual
+        # Ablation switches. Real configuration rather than monkey-patching, so
+        # an ablation entry in the benchmark is one flag difference from the
+        # full method instead of a copy of the code.
+        self.enable_provenance = enable_provenance
+        self.enable_taint_tracking = enable_taint_tracking
 
         self.world = _World(world_name)
         self.world.patch_state({"session_id": session_id, "v3_engine_id": self.engine_id})
@@ -247,7 +254,7 @@ class V3ShieldEngine:
         # from an artifact back to the call that produced it is what makes a
         # decision explainable ("destination X came from the output of call Y").
         produced_artifact_id = None
-        if tool_output is not None:
+        if tool_output is not None and self.enable_provenance:
             produced_artifact_id = self.taint_tracker.observe(
                 content=tool_output,
                 origin_type="tool_output",
@@ -256,15 +263,18 @@ class V3ShieldEngine:
             ).artifact_id
 
         # Artifacts whose entities this call actually consumes. Recorded so the
-        # graph can express "this sink read data that came from there".
-        consumed_artifact_ids = [
-            origin.artifact_id
-            for origin in (
-                self.taint_tracker.origin_of(entity)
-                for entity in extract_entities(_flatten_params(params))
-            )
-            if origin is not None
-        ]
+        # graph can express "this sink read data that came from there". Empty
+        # when taint tracking is off, which is what makes the ablation real.
+        consumed_artifact_ids = []
+        if self.enable_provenance and self.enable_taint_tracking:
+            consumed_artifact_ids = [
+                origin.artifact_id
+                for origin in (
+                    self.taint_tracker.origin_of(entity)
+                    for entity in extract_entities(_flatten_params(params))
+                )
+                if origin is not None
+            ]
 
         observed_event = ObservedToolEvent(
             event_id=event_id,
@@ -291,11 +301,8 @@ class V3ShieldEngine:
             graph_path_risk=0.0,
         )
         local_state.signals.extend(
-            extract_provenance_signals(
-                tool_name=tool_name,
-                tool_input=params,
-                taint_tracker=self.taint_tracker,
-                user_intent_text=self.user_intent,
+            self._provenance_signals(
+                tool_name=tool_name, tool_input=params
             )
         )
 
@@ -345,11 +352,8 @@ class V3ShieldEngine:
         # graph-context signals, and dropping the provenance ones here would
         # silently undo the injection detection.
         self._graph_risk_state.signals.extend(
-            extract_provenance_signals(
-                tool_name=tool_name,
-                tool_input=params,
-                taint_tracker=self.taint_tracker,
-                user_intent_text=self.user_intent,
+            self._provenance_signals(
+                tool_name=tool_name, tool_input=params
             )
         )
 
@@ -446,6 +450,24 @@ class V3ShieldEngine:
             ),
             "consumed_artifact_ids": consumed_artifact_ids,
         }
+
+    def _provenance_signals(self, tool_name: str, tool_input: Dict[str, Any]):
+        """Provenance signals for this call, honouring the ablation switches.
+
+        Returns an empty list when provenance is disabled, so the engine is
+        exactly a single-event gate in that configuration. With
+        ``enable_taint_tracking=False`` the origin-based signals are dropped and
+        only "untrusted content is present" remains.
+        """
+        if not self.enable_provenance:
+            return []
+        return extract_provenance_signals(
+            tool_name=tool_name,
+            tool_input=tool_input,
+            taint_tracker=self.taint_tracker,
+            user_intent_text=self.user_intent,
+            track_taint=self.enable_taint_tracking,
+        )
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:
         risk = float(intervention.get("risk_score", 0.0) or 0.0)
