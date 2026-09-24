@@ -49,6 +49,36 @@ _SENSITIVE_MARKERS = (
     "medical", "/etc/passwd", "/etc/shadow", "id_rsa",
 )
 
+# Read-only tools: they consume entities but produce no side effect outside the
+# trust boundary. A destination arriving through a search result is not a
+# provenance risk for the search itself -- blocking "search_files_by_filename"
+# because the filename matched an earlier artifact was the single largest
+# contributor to the 30.9% benign trace-block rate.
+_READ_ONLY_MARKERS = (
+    "read_", "get_", "search", "list_", "find", "query", "fetch", "lookup",
+    "check", "show", "view", "peek", "head", "cat",
+    # "load_" is deliberately absent: it also matches upload_file, which is an
+    # outbound action. Reading is covered by read_/get_/fetch above.
+)
+
+
+def _is_read_only(tool_name: str) -> bool:
+    """True when a tool only reads and cannot act on what it returns."""
+    tool = _normalise_tool(tool_name)
+    if not tool:
+        return False
+    # An explicitly privileged verb always wins over a read-looking prefix:
+    # "delete_file" must not be excused by containing "file".
+    if _is_privileged(tool):
+        return False
+    return any(marker in tool for marker in _READ_ONLY_MARKERS)
+
+
+# Weight applied to destination/intent/taint provenance signals when the tool
+# being governed only reads. Reading a tainted value cannot exfiltrate it, so a
+# search that merely mentions an entity is not a governance event.
+_READ_ONLY_SIGNAL_WEIGHT = 0.30
+
 
 def _normalise_tool(tool_name: str) -> str:
     return str(tool_name or "").lower()
@@ -104,6 +134,14 @@ def extract_provenance_signals(
     intent_text = str(user_intent_text or "")
 
     untrusted_artifacts = taint_tracker.untrusted_artifacts()
+    # A read-only tool cannot act on a tainted destination, so the
+    # destination/intent/taint signals only carry full weight for a sink.
+    #
+    # Gated on enable_trust_policy: this is a v0.4 refinement, and applying it
+    # unconditionally would retroactively change the v0.3 ladder that
+    # v0.3.1-research froze, breaking comparability with that release.
+    read_only = enable_trust_policy and _is_read_only(tool_name)
+    read_only_weight = _READ_ONLY_SIGNAL_WEIGHT if read_only else 1.0
     instruction_bearing = taint_tracker.instruction_bearing_untrusted()
 
     # ── 1. Untrusted instruction ──────────────────────────────────────────
@@ -111,10 +149,14 @@ def extract_provenance_signals(
         worst = max(instruction_bearing, key=lambda a: len(a.content))
         signals.append(RiskSignal(
             signal_type=RiskSignalType.UNTRUSTED_INSTRUCTION,
-            score=0.95,
+            # Also tempered for a read-only tool: an instruction sitting in the
+            # context is a reason to watch the *next* call, not to block a
+            # search that cannot act on it.
+            score=0.95 * read_only_weight,
             evidence=[
                 f"Untrusted artifact {worst.artifact_id} ({worst.origin_type}) "
                 "contains instruction-like text directed at the agent"
+                + (" [read-only tool]" if read_only else "")
             ],
             artifact_ids=[a.artifact_id for a in instruction_bearing],
         ))
@@ -126,10 +168,11 @@ def extract_provenance_signals(
     if tainted_origins and track_taint:
         signals.append(RiskSignal(
             signal_type=RiskSignalType.DESTINATION_PROVENANCE,
-            score=0.90,
+            score=0.90 * read_only_weight,
             evidence=[
                 f"{o.entity} first observed in untrusted artifact {o.artifact_id} "
                 f"({o.origin_type})"
+                + (" [read-only tool]" if read_only else "")
                 for o in tainted_origins[:3]
             ],
             artifact_ids=[o.artifact_id for o in tainted_origins],
@@ -149,7 +192,7 @@ def extract_provenance_signals(
         if novel:
             signals.append(RiskSignal(
                 signal_type=RiskSignalType.INTENT_ORIGIN_MISMATCH,
-                score=0.85,
+                score=0.85 * read_only_weight,
                 evidence=[
                     f"{o.entity} is absent from the user request but present in "
                     f"untrusted artifact {o.artifact_id}"
@@ -193,7 +236,7 @@ def extract_provenance_signals(
     if propagated and track_taint:
         signals.append(RiskSignal(
             signal_type=RiskSignalType.CROSS_AGENT_DELEGATION,
-            score=0.80,
+            score=0.80 * read_only_weight,
             evidence=[
                 f"Entity from untrusted content reaches this call: {e}"
                 for e in sorted(set(propagated))[:3]
@@ -235,10 +278,12 @@ def _trust_policy_signals(
       action family and the entity involved, which is authorisation.
     """
     from app.shield.authorization import user_authorises
-    from app.shield.risk_signals import RiskSignalType
-    from app.shield.trust_policy import (
-        trust_prior,
+    from app.shield.risk_signals import (
+        AUTHORISED_ACTION_CEILING,
+        TRUSTED_ENTITY_CEILING,
+        RiskSignalType,
     )
+    from app.shield.trust_policy import trust_prior
 
     signals: List[RiskSignal] = []
 
@@ -264,6 +309,7 @@ def _trust_policy_signals(
         signals.append(RiskSignal(
             signal_type=RiskSignalType.USER_AUTHORIZED_ACTION,
             score=0.20,
+            caps_risk=AUTHORISED_ACTION_CEILING,
             evidence=[
                 "Operator's request names the '{family}' action and the "
                 "entity/entities {entities}".format(
@@ -281,6 +327,7 @@ def _trust_policy_signals(
         signals.append(RiskSignal(
             signal_type=RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
             score=0.35,
+            caps_risk=TRUSTED_ENTITY_CEILING,
             evidence=[
                 f"Call entities resolved from {trusted_classes} content; presence-based "
                 f"alarm down-weighted (prior {max(priors)})"

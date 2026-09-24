@@ -8,12 +8,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Ceiling applied to the combined risk when the operator explicitly authorised
 # the action. Authorisation suppresses presence-based alarms (that is what
 # makes a user-requested payment pass) without erasing structural violations.
 AUTHORISED_ACTION_CEILING = 0.55
+
+# Ceiling applied when the call's entities were resolved from structured or
+# financial content rather than an external fetch. Weaker than full
+# authorisation: an entity arriving through a trusted *store* is more likely
+# legitimate than one scraped off a web page, but the operator never named it,
+# so it does not get the authorisation ceiling.
+TRUSTED_ENTITY_CEILING = 0.70
 
 
 class RiskSignalType(str, Enum):
@@ -55,6 +62,11 @@ class RiskSignal:
     # Artifacts this signal was derived from. Provenance signals use it so a
     # decision can be explained as "destination X first appeared in artifact Y".
     artifact_ids: List[str] = field(default_factory=list)
+    # When set, this signal *caps* the combined risk instead of contributing to
+    # it. Used by the v0.4 trust-calibration signals: without it, a low-scoring
+    # "this looks authorised" signal is simply maxed away by the 0.9 presence
+    # alarm it is meant to temper, and the tempering has no effect at all.
+    caps_risk: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -128,12 +140,12 @@ class GraphRiskState:
         # the operator's request does not erase a hard structural violation
         # (a bulk delete still reads as dangerous), it only bounds how high the
         # presence-based evidence may push the score.
-        authorised = any(
-            s.signal_type == RiskSignalType.USER_AUTHORIZED_ACTION
-            for s in self.signals
-        )
-        if authorised:
-            peak = min(peak, AUTHORISED_ACTION_CEILING)
+        # Any signal carrying `caps_risk` bounds the peak. The lowest cap wins,
+        # so an explicit authorisation still overrides a weaker trusted-entity
+        # ceiling when both are present.
+        caps = [s.caps_risk for s in self.signals if s.caps_risk is not None]
+        if caps:
+            peak = min(peak, *caps)
 
         # No confidence discount and no intervention bonus in the base case, so
         # that "all components equal x, confidence 1.0" yields exactly x -- the

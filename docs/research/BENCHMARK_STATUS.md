@@ -690,6 +690,43 @@ authorised action is not attack coverage. Restated on a per-decision basis the
 v0.4 gate is strictly better; restated on the trajectory-block metric it looks
 like a regression. Both readings are reported rather than the flattering one.
 
+### Second pass: classifying what v0.3 had been blocking
+
+Adding a read-only guard (a tool that cannot act on what it returns must not
+inherit destination-provenance risk) and giving the trust signals a real
+ceiling rather than a low additive score changes the picture again. On the same
+400 attack trajectories, the 64 that v0.3 blocked classify as:
+
+| why v0.3 blocked it | count | v0.4 verdict |
+|---|---|---|
+| the operator explicitly authorised the action | 36 | correctly allowed |
+| the final tool is read-only (no side effect) | 14 | correctly allowed |
+| genuinely should have stayed blocked | **14** | still blocked |
+
+So v0.4 releases **nothing that should have been blocked**. The drop in
+attack-trace blocking from 16.0% to 3.5% is entirely the removal of v0.3
+false positives -- 50 of the 64 trajectories it blocked were benign in the
+sense that matters: either the user asked for exactly that action, or the
+governed tool could not act on the tainted value at all.
+
+Full ladder after both refinements (same 97 benign / 400 attack trajectories):
+
+| Configuration | attack trace block | benign trace block |
+|---|---|---|
+| `local_only` | 0.000 | 1.0% |
+| + untrusted output inspection | 0.035 | 19.6% |
+| + entity provenance (v0.3) | 0.160 | 41.2% |
+| + intent consistency | 0.160 | 41.2% |
+| **+ trust policy + read guard + caps (v0.4)** | **0.035** | **21.6%** |
+
+Read together with the row above it, the honest summary is: **v0.3's 16.0%
+attack-block figure was 78% false positives.** v0.4 blocks a third as many
+trajectories and none of the difference is a missed attack; benign blocking
+roughly halves.
+
+The read-only guard is gated behind the trust-policy flag so the v0.3 ladder
+stays comparable with the frozen v0.3.1-research release.
+
 ### What still limits it
 
 The 30.9% residual benign blocking is the open problem. It comes from
