@@ -171,6 +171,7 @@ class ObservedContentArtifact:
     session_id: str
     source_event_id: str
     origin_type: str                    # user | tool_output | memory | web | file | agent_message
+    source_tool: str = ""               # the tool whose output produced this
     trust_level: str = TRUST_UNKNOWN    # trusted | untrusted | unknown
     content: str = ""
     content_hash: str = ""

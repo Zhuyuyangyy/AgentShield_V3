@@ -606,3 +606,70 @@ ordinary retrieved content.
 What survives unchanged: `local_only` still detects almost nothing (0.035),
 which is the observability-gap claim; benign block rates are identical because
 trust policy was already all-untrusted; and governance latency is unaffected.
+
+---
+
+## v0.4 RQ3 — trust calibration did NOT produce a Pareto win (negative result)
+
+Branch: `research/v0.4-trust-policy`, harness
+`benchmark/v04_trust_replay.py`, artifact
+`benchmark/results/v0_4_trust_pareto.json`.
+
+Research question: *can source-aware trust and explicit user authorisation
+retain the attack signal provided by provenance while reducing benign
+over-blocking?*
+
+Same 97 benign trajectories (339 steps) plus the first 400 attack trajectories,
+frozen trust policy and authorisation rule (frozen before measurement, per
+`app/shield/trust_policy.py` and `app/shield/authorization.py`):
+
+| Configuration | attack trace block | benign trace block |
+|---|---|---|
+| `local_only` | 0.000 | 1.0% |
+| + untrusted output inspection | 0.035 | 19.6% |
+| **+ entity provenance (v0.3)** | **0.160** | **41.2%** |
+| + intent consistency | 0.160 | 41.2% |
+| + tool-semantics trust + authorisation (v0.4) | **0.070** | **30.9%** |
+
+**The answer is no.** Benign blocking falls 10.3 points (41.2% → 30.9%) but
+attack blocking falls 9.0 points (16.0% → 7.0%). That is roughly a one-for-one
+trade, not a Pareto improvement: the mechanism cannot tell an authorised action
+from an injected one on this corpus.
+
+### Why, mechanistically
+
+Measured on 200 attack trajectories: v0.3 blocks 14, v0.4 blocks 0, and
+`user_authorized_action` fires on **14 of those 14** — a 100% false-authorisation
+rate on exactly the trajectories that matter.
+
+The cause is structural, not a tuning artefact. An AgentDojo user task is of the
+form "email the attendee list to X" or "delete file 13". An injected instruction
+asks the agent to do something *within the same task*, often naming an entity the
+task already mentions. So "the operator's request names this action family and
+this entity" is satisfied by the attack as readily as by a legitimate request.
+User authorisation and injected instruction are close to indistinguishable under
+this threat model.
+
+Tightening the entity match (exact containment instead of leading-label
+containment) removed a genuine over-match — `reports@internal.com` had been
+authorising `reports@partner-example.com` — and changed nothing overall, which is
+how the structural cause was confirmed rather than assumed.
+
+### What this rules out
+
+Explicit user authorisation, as a *textual* signal over the request, is not a
+usable discriminator here. Any v0.5 attempt would need a different basis: the
+operator's intent captured as structured slots at request time rather than as
+prose matched after the fact.
+
+### What survives
+
+RQ1 and RQ2 are unaffected and remain the paper's contribution:
+
+* RQ1 — the current tool call alone carries no signal: 0% attack blocking.
+* RQ2 — earlier tool output and entity origin do: 3.5% → 16.0%.
+* RQ3 — attempted and answered negatively, with the mechanism identified. A
+  negative result with a diagnosis is a result.
+
+The v0.3 freeze `v0.3.1-research` remains the canonical experiment set; this
+section records the follow-up that did not improve on it.

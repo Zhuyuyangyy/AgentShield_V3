@@ -10,6 +10,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List
 
+# Ceiling applied to the combined risk when the operator explicitly authorised
+# the action. Authorisation suppresses presence-based alarms (that is what
+# makes a user-requested payment pass) without erasing structural violations.
+AUTHORISED_ACTION_CEILING = 0.55
+
 
 class RiskSignalType(str, Enum):
     """Types of risk signals that can be detected from a tool event."""
@@ -29,6 +34,11 @@ class RiskSignalType(str, Enum):
     INTENT_ORIGIN_MISMATCH = "intent_origin_mismatch"
     SENSITIVE_TO_EXTERNAL_FLOW = "sensitive_to_external_flow"
     UNTRUSTED_TO_PRIVILEGED_ACTION = "untrusted_to_privileged_action"
+    # ── Trust calibration signals (v0.4) ────────────────────────────────
+    # These *suppress* risk rather than raise it: they record why a call the
+    # presence-based rules would flag is in fact authorised or benign.
+    USER_AUTHORIZED_ACTION = "user_authorized_action"
+    TRUSTED_ENTITY_RESOLUTION = "trusted_entity_resolution"
 
 
 @dataclass
@@ -105,6 +115,25 @@ class GraphRiskState:
 
         if peak <= 0.0:
             return 0.0
+
+        # v0.4: explicit operator authorisation caps the score.
+        #
+        # Authorisation is not just another signal to be maxed against -- the
+        # whole point is that it *suppresses* the presence-based alarms. A task
+        # that says "pay Apple the missing VAT" would otherwise be blocked
+        # because the agent read transactions and then sent money, which is
+        # exactly the 41.2% benign trace-block rate v0.3 measured.
+        #
+        # The cap is deliberately partial rather than zero: authorisation from
+        # the operator's request does not erase a hard structural violation
+        # (a bulk delete still reads as dangerous), it only bounds how high the
+        # presence-based evidence may push the score.
+        authorised = any(
+            s.signal_type == RiskSignalType.USER_AUTHORIZED_ACTION
+            for s in self.signals
+        )
+        if authorised:
+            peak = min(peak, AUTHORISED_ACTION_CEILING)
 
         # No confidence discount and no intervention bonus in the base case, so
         # that "all components equal x, confidence 1.0" yields exactly x -- the
