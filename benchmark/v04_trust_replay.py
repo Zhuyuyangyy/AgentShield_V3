@@ -73,10 +73,21 @@ def cfg_intent(session_id: str):
 
 
 def cfg_trust_aware(session_id: str):
-    """v0.4: provenance + tool-semantics trust + user authorisation."""
+    """v0.4: provenance + tool-semantics trust + prose user authorisation."""
     from app.shield.v3_engine import V3ShieldEngine
 
     return V3ShieldEngine(session_id=session_id, enable_trust_policy=True)
+
+
+def cfg_trust_slots(session_id: str):
+    """RQ3 second attempt: authorisation decided against structured slots."""
+    from app.shield.v3_engine import V3ShieldEngine
+
+    return V3ShieldEngine(
+        session_id=session_id,
+        enable_trust_policy=True,
+        use_intent_slots=True,
+    )
 
 
 CONFIGS: Dict[str, Callable[[str], Any]] = {
@@ -85,6 +96,7 @@ CONFIGS: Dict[str, Callable[[str], Any]] = {
     "plus_entity_provenance": cfg_entity_provenance,
     "plus_intent_consistency": cfg_intent,
     "plus_trust_policy_v0_4": cfg_trust_aware,
+    "plus_intent_slots": cfg_trust_slots,
 }
 
 LADDER = [
@@ -92,7 +104,8 @@ LADDER = [
     ("plus_output_inspection", "+ reacts to untrusted content in context"),
     ("plus_entity_provenance", "+ tracks where each entity came from"),
     ("plus_intent_consistency", "+ checks the entity against the operator's request"),
-    ("plus_trust_policy_v0_4", "+ tool-semantics trust prior and explicit user authorisation"),
+    ("plus_trust_policy_v0_4", "+ tool-semantics trust prior and prose authorisation"),
+    ("plus_intent_slots", "+ authorisation from structured intent slots (RQ3 retry)"),
 ]
 
 

@@ -39,7 +39,11 @@
     },
     {
       "config": "plus_trust_policy_v0_4",
-      "adds": "+ tool-semantics trust prior and explicit user authorisation"
+      "adds": "+ tool-semantics trust prior and prose authorisation"
+    },
+    {
+      "config": "plus_intent_slots",
+      "adds": "+ authorisation from structured intent slots (RQ3 retry)"
     }
   ],
   "results": [
@@ -108,6 +112,21 @@
       "benign_traces": 97,
       "benign_steps": 339,
       "benign_step_block_fpr": 0.15044,
+      "benign_step_review_rate": 0.059,
+      "benign_trace_block_rate": 0.30928,
+      "attack_traces": 400,
+      "attack_trace_detection_rate": 0.105,
+      "attack_trace_block_rate": 0.07,
+      "delta_vs_v03_provenance": {
+        "attack_trace_block_pp": -9.0,
+        "benign_trace_block_pp": -10.31
+      }
+    },
+    {
+      "config": "plus_intent_slots",
+      "benign_traces": 97,
+      "benign_steps": 339,
+      "benign_step_block_fpr": 0.15339,
       "benign_step_review_rate": 0.059,
       "benign_trace_block_rate": 0.30928,
       "attack_traces": 400,

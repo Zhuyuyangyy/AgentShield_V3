@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from app.shield.agent_behavior_graph import AgentBehaviorGraph
 from app.shield.artifacts import extract_entities
 from app.shield.counterfactual import CounterfactualEngine
+from app.shield.intent_slots import IntentSlots, parse_intent
 from app.shield.provenance_signals import extract_provenance_signals
 from app.shield.redaction import summarize_params as _summarize_params_redacted
 from app.shield.risk_extractor import RiskSignalExtractor
@@ -182,6 +183,7 @@ class V3ShieldEngine:
         enable_provenance: bool = True,
         enable_taint_tracking: bool = True,
         enable_trust_policy: bool = False,
+        use_intent_slots: bool = False,
     ):
         self.session_id = session_id
         self.engine_id = f"v3engine_{uuid.uuid4().hex[:8]}"
@@ -195,6 +197,7 @@ class V3ShieldEngine:
         self.enable_taint_tracking = enable_taint_tracking
         # v0.4: tool-semantics trust policy + explicit user authorisation.
         self.enable_trust_policy = enable_trust_policy
+        self.use_intent_slots = use_intent_slots
 
         self.world = _World(world_name)
         self.world.patch_state({"session_id": session_id, "v3_engine_id": self.engine_id})
@@ -212,6 +215,10 @@ class V3ShieldEngine:
         # distinguishes "the user asked for this" from "an untrusted artifact
         # asked for this" -- a distinction no single-event guardrail can make.
         self.user_intent: str = ""
+        # RQ3 second attempt: the request is parsed into structured slots once,
+        # at intake, and authorisation is decided against those slots rather
+        # than by re-scanning prose on every call.
+        self.intent_slots: IntentSlots = IntentSlots(parsed=False)
         # Ablation switch for the paired experiment: when set, recorded intents
         # are ignored for scoring, which is what isolates the contribution of
         # intent consistency from entity provenance.
@@ -245,7 +252,13 @@ class V3ShieldEngine:
         # the baseline for intent-origin comparison, so it must be the *first*
         # thing supplied rather than inferred.
         if user_intent:
-            self.user_intent = str(user_intent)
+            text = str(user_intent)
+            if text != self.user_intent:
+                self.user_intent = text
+                # Only maintain the slot structure when the feature is on, so
+                # the ablation rungs differ by configuration alone.
+                if self.use_intent_slots:
+                    self.intent_slots = parse_intent(text)
 
         # Build observed event for signal extraction (PASS 1: local only).
         from app.shield.schemas import ObservedToolEvent
@@ -475,6 +488,7 @@ class V3ShieldEngine:
             user_intent_text="" if self._ignore_user_intent else self.user_intent,
             track_taint=self.enable_taint_tracking,
             enable_trust_policy=self.enable_trust_policy,
+            intent_slots=self.intent_slots if self.use_intent_slots else None,
         )
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:

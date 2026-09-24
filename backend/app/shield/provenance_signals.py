@@ -76,6 +76,7 @@ def extract_provenance_signals(
     user_intent_text: str = "",
     track_taint: bool = True,
     enable_trust_policy: bool = False,
+    intent_slots=None,
 ) -> List[RiskSignal]:
     """Return the provenance signals for one tool call.
 
@@ -208,6 +209,7 @@ def extract_provenance_signals(
                 input_text=input_text,
                 taint_tracker=taint_tracker,
                 user_intent_text=intent_text,
+                intent_slots=intent_slots,
             )
         )
 
@@ -220,6 +222,7 @@ def _trust_policy_signals(
     input_text: str,
     taint_tracker,
     user_intent_text: str,
+    intent_slots=None,
 ) -> List[RiskSignal]:
     """v0.4: tool-semantics trust prior plus explicit user authorisation.
 
@@ -244,12 +247,18 @@ def _trust_policy_signals(
     priors = {trust_prior(t) for t in entity_trust.values()}
     relaxed = priors and max(priors) < 1.0
 
-    authorisation = user_authorises(
-        user_intent=user_intent_text,
-        tool_name=tool_name,
-        tool_input=tool_input,
-        entity_trust=entity_trust,
-    )
+    # Prefer structured slots when supplied: they capture the operator's
+    # request at intake, so an injected instruction that merely resembles the
+    # task cannot satisfy them the way a prose rescan can.
+    if intent_slots is not None:
+        authorisation = intent_slots.authorises(tool_name, tool_input)
+    else:
+        authorisation = user_authorises(
+            user_intent=user_intent_text,
+            tool_name=tool_name,
+            tool_input=tool_input,
+            entity_trust=entity_trust,
+        )
 
     if authorisation.get("authorised"):
         signals.append(RiskSignal(

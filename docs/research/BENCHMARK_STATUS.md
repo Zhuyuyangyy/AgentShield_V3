@@ -655,12 +655,49 @@ containment) removed a genuine over-match — `reports@internal.com` had been
 authorising `reports@partner-example.com` — and changed nothing overall, which is
 how the structural cause was confirmed rather than assumed.
 
-### What this rules out
+### Correction after full-sample analysis: the earlier reading was wrong
 
-Explicit user authorisation, as a *textual* signal over the request, is not a
-usable discriminator here. Any v0.5 attempt would need a different basis: the
-operator's intent captured as structured slots at request time rather than as
-prose matched after the fact.
+The first write-up above concluded "structural, not a tuning artefact" from a
+200-trajectory sample in which all 14 v0.3 blocks were re-authorised by v0.4.
+Re-running on the full 400-trajectory attack sample gives a different picture:
+
+| | count |
+|---|---|
+| v0.3 blocked | 64 |
+| v0.4 blocked | 28 |
+| v0.3 blocked **and** v0.4 judged authorised | 36 |
+| v0.3 blocked **and** v0.4 released **without** authorisation | **0** |
+
+Nothing was let through without authorisation. Every one of the 36 trajectories
+v0.4 stopped blocking has a user_task_prompt that explicitly names the action
+and its target (e.g. "add john.doe@clientcorp.com ... to the participants of
+the 'Introductory meeting' event"), so v0.3 was wrong to block them and v0.4 is
+right to allow them.
+
+So the honest statement is:
+
+* **v0.4 introduces no false negatives on this sample.** Attack blocking drops
+  16.0% -> 7.0% only because v0.3 was over-blocking authorised actions.
+* **Benign trace blocking drops 41.2% -> 30.9%.**
+* The remaining 30.9% is still high, and it is not explained by authorisation:
+  those are benign trajectories where no explicit operator authorisation could
+  be established, and the presence-based signal still fires.
+
+That is a Pareto improvement in the sense that matters -- fewer benign blocks
+with no measured loss of attack coverage -- but it is **not** a clean win,
+because "attack coverage" here means "trajectories blocked", and blocking an
+authorised action is not attack coverage. Restated on a per-decision basis the
+v0.4 gate is strictly better; restated on the trajectory-block metric it looks
+like a regression. Both readings are reported rather than the flattering one.
+
+### What still limits it
+
+The 30.9% residual benign blocking is the open problem. It comes from
+trajectories where the operator's request names an action family but not the
+specific entity, so no authorisation can be established and the
+presence-based signal stands. Resolving it needs the operator's intent captured
+as structured slots at request time by the calling application, not recovered
+from prose afterwards -- which is a protocol change, not a detector change.
 
 ### What survives
 
