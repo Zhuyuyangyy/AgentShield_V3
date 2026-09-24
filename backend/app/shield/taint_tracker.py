@@ -65,6 +65,7 @@ class TaintTracker:
         source_event_id: str,
         trust_level: Optional[str] = None,
         derived_from: Optional[List[str]] = None,
+        source_tool: str = "",
     ) -> ObservedContentArtifact:
         """Record a piece of content and the entities it introduced."""
         if trust_level is None:
@@ -76,6 +77,7 @@ class TaintTracker:
             source_event_id=source_event_id,
             origin_type=str(origin_type).lower(),
             trust_level=trust_level,
+            source_tool=str(source_tool or ""),
             content=str(content),
             content_hash=content_hash(content),
             timestamp=time.time(),

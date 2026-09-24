@@ -75,6 +75,7 @@ def extract_provenance_signals(
     taint_tracker,
     user_intent_text: str = "",
     track_taint: bool = True,
+    enable_trust_policy: bool = False,
 ) -> List[RiskSignal]:
     """Return the provenance signals for one tool call.
 
@@ -86,6 +87,12 @@ def extract_provenance_signals(
     untrusted content, and drops the ones that need per-entity origins
     (destination provenance, intent mismatch, taint propagation). That is what
     makes the ablation a real difference rather than the same code twice.
+
+    ``enable_trust_policy=True`` switches on the v0.4 refinements: destinations
+    arriving through structured or financial content are down-weighted by the
+    tool-semantics prior, and a call the operator explicitly authorised emits a
+    suppression signal instead of an alarm. Both are reported as their own
+    signals so the effect is auditable rather than a silent score change.
     """
     if taint_tracker is None:
         return []
@@ -193,7 +200,108 @@ def extract_provenance_signals(
             artifact_ids=[a.artifact_id for a in untrusted_artifacts[:3]],
         ))
 
+    if enable_trust_policy:
+        signals.extend(
+            _trust_policy_signals(
+                tool_name=tool_name,
+                tool_input=tool_input,
+                input_text=input_text,
+                taint_tracker=taint_tracker,
+                user_intent_text=intent_text,
+            )
+        )
+
     return signals
+
+
+def _trust_policy_signals(
+    tool_name: str,
+    tool_input: Dict[str, Any],
+    input_text: str,
+    taint_tracker,
+    user_intent_text: str,
+) -> List[RiskSignal]:
+    """v0.4: tool-semantics trust prior plus explicit user authorisation.
+
+    Two distinct effects, each surfaced as its own signal:
+
+    * ``TRUSTED_ENTITY_RESOLUTION`` -- the call's destination arrived through
+      structured or financial content rather than an external fetch, so the
+      presence-based alarm is down-weighted.
+    * ``USER_AUTHORIZED_ACTION`` -- the operator's request names both this
+      action family and the entity involved, which is authorisation.
+    """
+    from app.shield.authorization import user_authorises
+    from app.shield.risk_signals import RiskSignalType
+    from app.shield.trust_policy import (
+        trust_prior,
+    )
+
+    signals: List[RiskSignal] = []
+
+    # Where did this call's entities come from?
+    entity_trust = _entity_trust(tool_input, taint_tracker)
+    priors = {trust_prior(t) for t in entity_trust.values()}
+    relaxed = priors and max(priors) < 1.0
+
+    authorisation = user_authorises(
+        user_intent=user_intent_text,
+        tool_name=tool_name,
+        tool_input=tool_input,
+        entity_trust=entity_trust,
+    )
+
+    if authorisation.get("authorised"):
+        signals.append(RiskSignal(
+            signal_type=RiskSignalType.USER_AUTHORIZED_ACTION,
+            score=0.20,
+            evidence=[
+                "Operator's request names the '{family}' action and the "
+                "entity/entities {entities}".format(
+                    family=authorisation.get("family"),
+                    entities=authorisation.get("matched_entities"),
+                )
+            ],
+        ))
+        return signals
+
+    if relaxed:
+        trusted_classes = sorted(
+            {t for t in entity_trust.values() if trust_prior(t) < 1.0}
+        )
+        signals.append(RiskSignal(
+            signal_type=RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
+            score=0.35,
+            evidence=[
+                f"Call entities resolved from {trusted_classes} content; presence-based "
+                f"alarm down-weighted (prior {max(priors)})"
+            ],
+            artifact_ids=[
+                a.artifact_id for a in taint_tracker.untrusted_artifacts()[:3]
+            ],
+        ))
+
+    return signals
+
+
+def _entity_trust(
+    tool_input: Dict[str, Any], taint_tracker
+) -> Dict[str, str]:
+    """Map each entity in the call to the trust class of the artifact it came from."""
+    from app.shield.artifacts import extract_entities
+    from app.shield.trust_policy import TRUST_EXTERNAL, classify_tool
+
+    result: Dict[str, str] = {}
+    artifacts = taint_tracker.artifacts.values() if taint_tracker else []
+    for entity in extract_entities(_flatten(tool_input)):
+        trust = None
+        for artifact in artifacts:
+            if entity in artifact.introduced_entities:
+                # The class of the *producing tool*, not of the content.
+                trust = classify_tool(artifact.source_tool)
+                break
+        result[entity] = trust or TRUST_EXTERNAL
+    return result
 
 
 def _flatten(value: Any) -> str:

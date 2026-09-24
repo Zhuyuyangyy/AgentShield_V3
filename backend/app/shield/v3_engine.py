@@ -181,6 +181,7 @@ class V3ShieldEngine:
         enable_counterfactual: bool = True,
         enable_provenance: bool = True,
         enable_taint_tracking: bool = True,
+        enable_trust_policy: bool = False,
     ):
         self.session_id = session_id
         self.engine_id = f"v3engine_{uuid.uuid4().hex[:8]}"
@@ -192,6 +193,8 @@ class V3ShieldEngine:
         # full method instead of a copy of the code.
         self.enable_provenance = enable_provenance
         self.enable_taint_tracking = enable_taint_tracking
+        # v0.4: tool-semantics trust policy + explicit user authorisation.
+        self.enable_trust_policy = enable_trust_policy
 
         self.world = _World(world_name)
         self.world.patch_state({"session_id": session_id, "v3_engine_id": self.engine_id})
@@ -263,6 +266,7 @@ class V3ShieldEngine:
                 origin_type="tool_output",
                 source_event_id=event_id,
                 trust_level=output_trust,
+                source_tool=tool_name,
             ).artifact_id
 
         # Artifacts whose entities this call actually consumes. Recorded so the
@@ -470,6 +474,7 @@ class V3ShieldEngine:
             taint_tracker=self.taint_tracker,
             user_intent_text="" if self._ignore_user_intent else self.user_intent,
             track_taint=self.enable_taint_tracking,
+            enable_trust_policy=self.enable_trust_policy,
         )
 
     def fork_branch(self, branch_label: str, intervention: Dict[str, Any]) -> str:
