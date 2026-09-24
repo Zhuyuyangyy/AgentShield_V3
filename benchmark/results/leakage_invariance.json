@@ -37,7 +37,7 @@
       "violations": []
     },
     "tool_name_rules": {
-      "cases": 120,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,
@@ -45,7 +45,7 @@
       "violations": []
     },
     "content_keywords": {
-      "cases": 180,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,
@@ -53,7 +53,7 @@
       "violations": []
     },
     "local_context": {
-      "cases": 240,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,
@@ -61,7 +61,7 @@
       "violations": []
     },
     "llm_as_judge": {
-      "cases": 300,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,
@@ -69,7 +69,7 @@
       "violations": []
     },
     "agentshield_no_graph": {
-      "cases": 360,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,
@@ -77,7 +77,7 @@
       "violations": []
     },
     "agentshield_graph_only": {
-      "cases": 420,
+      "cases": 60,
       "metadata_permutations": 480,
       "changed_predictions": 0,
       "prediction_invariance_rate": 1.0,

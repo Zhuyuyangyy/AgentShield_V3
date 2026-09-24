@@ -66,7 +66,30 @@ _MUTATION_POOL = {
     "target_functions": ["[]", '["send_email"]', '["delete_file"]'],
     "grading_function": ["grade_a", "grade_z", ""],
     "category": ["benign", "sensitive_data_access", "rogue_category"],
+    # Boolean-ish fixture flags. Without an entry here these fields are listed
+    # in forbidden_fields_tested but never actually varied, so the "every
+    # hidden field was permuted" claim would be false.
+    "v3_specific": [True, False],
+    "v3_standard_action": ["ALLOW", "HUMAN_REVIEW", "BLOCK", "MAYBE"],
 }
+
+
+def _fallback_mutations(value: Any) -> List[Any]:
+    """Generic replacements for a field with no explicit pool entry.
+
+    Without this, a newly added evaluation-only field would be listed in
+    ``forbidden_fields_tested`` while never actually being varied -- the exact
+    gap that let ``v3_specific`` and ``v3_standard_action`` slip through.
+    """
+    if isinstance(value, bool):
+        return [not value]
+    if isinstance(value, (int, float)):
+        return [value + 1, 0]
+    if isinstance(value, (list, tuple, set)):
+        return [[], ["__mutated__"]]
+    if isinstance(value, dict):
+        return [{"__mutated__": True}]
+    return ["", "__mutated__", "__MUTATED__"]
 
 
 def _mutate_metadata(
@@ -75,15 +98,14 @@ def _mutate_metadata(
     """Return a copy of ``item`` with every evaluation-only field changed.
 
     Only fields listed in ``FORBIDDEN_CASE_FIELDS`` are touched, and only when
-    present in the source row.
+    present in the source row. Every touched field is guaranteed to change,
+    either via its explicit pool or the generic fallback.
     """
     mutated = dict(item)
     for key in sorted(forbidden):
         if key not in mutated:
             continue
-        pool = _MUTATION_POOL.get(key)
-        if not pool:
-            continue
+        pool = _MUTATION_POOL.get(key) or _fallback_mutations(mutated[key])
         candidates = [v for v in pool if v != mutated[key]]
         if candidates:
             mutated[key] = rng.choice(candidates)
@@ -218,11 +240,11 @@ def run_invariance_test(
         predictors.append((name, baseline))
 
     per_method: Dict[str, Dict[str, Any]] = {}
-    cases_tested = 0
 
     for method_name, predictor in predictors:
         checked = 0
         changed = 0
+        cases_tested = 0
         violations: List[Dict[str, Any]] = []
 
         for item in sample:

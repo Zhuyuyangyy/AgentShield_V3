@@ -114,8 +114,12 @@ def corpus_markers_enabled() -> bool:
 
 
 def active_markers() -> tuple:
-    """The marker set actually in force (generic, plus corpus if opted in)."""
-    markers = _GENERIC_MARKERS
+    """The marker set actually in force (generic, plus corpus if opted in).
+
+    Annotated as a variable-length tuple because the two source tuples have
+    different lengths, so mypy cannot unify them into one fixed-length type.
+    """
+    markers: tuple = _GENERIC_MARKERS
     if corpus_markers_enabled():
         markers = markers + _CORPUS_MARKERS
     return markers

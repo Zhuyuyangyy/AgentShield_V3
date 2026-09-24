@@ -26,7 +26,10 @@ class V3AuditLogger:
     def log(self, event: str, session_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """追加一条审计记录"""
         ts = time.time()
-        record = {
+        # Explicit annotation: without it mypy infers dict[str, object] from the
+        # mixed value types and then rejects assigning record_hash into
+        # self._last_hash (declared str).
+        record: Dict[str, Any] = {
             "record_id": f"rec_{uuid.uuid4().hex[:12]}",
             "event": event,
             "session_id": session_id,

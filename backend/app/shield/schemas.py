@@ -12,7 +12,7 @@ HARD RULE:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 
 @dataclass
@@ -149,11 +149,17 @@ def ground_truth_from_dict(data: dict) -> HiddenGroundTruth:
             "ALLOW / HUMAN_REVIEW / BLOCK (from 'label' or 'expected_action')"
         )
 
+    # ``label`` is a Literal type and the value read from the dataset is only
+    # known to be a str at type-check time. The validation above guarantees it
+    # is one of the three members, so state that explicitly.
+    ground_truth_label = cast(
+        "Literal['ALLOW', 'HUMAN_REVIEW', 'BLOCK']", label
+    )
     return HiddenGroundTruth(
         event_id=data.get("event_id", data.get("id", data.get("case_id", ""))),
         attack_stage=data.get("attack_stage", "unknown"),
         chain_id=data.get("chain_id", ""),
         step_index=data.get("step_index", 0),
-        label=label,
+        label=ground_truth_label,
         rationale=data.get("rationale", ""),
     )

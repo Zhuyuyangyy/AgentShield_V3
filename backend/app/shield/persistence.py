@@ -65,12 +65,25 @@ def save_engine_state(session_id: str, engine: Any) -> None:
 
     try:
         loop.run_in_executor(_DB_EXECUTOR, _flush, session_id).add_done_callback(
-            lambda fut, sid=session_id: _on_flush_done(fut, sid)
+            _make_save_callback(session_id)
         )
     except Exception:
         logger.warning("Could not schedule session save for %s", session_id, exc_info=True)
         with _registry_lock:
             _inflight_saves.discard(session_id)
+
+
+def _make_save_callback(session_id: str):
+    """Build the completion callback for a session save.
+
+    A named factory rather than an inline lambda: mypy cannot infer the
+    parameter types of a lambda passed straight to ``add_done_callback``.
+    """
+
+    def _callback(fut) -> None:
+        _on_flush_done(fut, session_id)
+
+    return _callback
 
 
 def _on_flush_done(fut, session_id: str) -> None:

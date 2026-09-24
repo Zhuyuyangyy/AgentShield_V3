@@ -1,8 +1,47 @@
 # Benchmark Status — read this before quoting any number
 
-> Status as of the label-leakage cleanup. **No headline metric in this
-> repository is currently quotable in a paper.** The table below is the
-> complete picture, including the numbers that look bad.
+## Current status (as of commit `c7b6bd2`, K.2 freeze hygiene)
+
+The evaluation harness is now label-free and reproducible, and GitHub Actions
+is green across all six jobs (lint, test 3.11, test 3.12, typecheck, benchmark,
+docker).
+
+**Quotable, with the stated caveats**
+
+| Result | Value | Where |
+|---|---|---|
+| Observability gap (the core claim) | single-event gate blocks 3.5% of attack trajectories | `benchmark/agentdojo_trace_replay.py` |
+| Provenance effect | attack trace block 0.035 → 0.160 | same |
+| Cost of that effect | benign trace block 19.6% → 41.2% | same |
+| Paired control | identical final calls, different decisions by source | `benchmark/paired_trajectory_eval.py` |
+| Evaluator isolation | 3,360 metadata permutations, 0 changed predictions | `benchmark/leakage_invariance.py` |
+| Governance latency | p50 0.27 ms, p95 0.61 ms, p99 3.95 ms | same trace replay |
+| SCI-600 (self-labelled fixture) | AgentShield 43.33% action acc / 31.34% BLOCK recall, **not** the best on that set | `benchmark/fair_evaluate.py` |
+
+**Superseded** — earlier figures replaced by the rows above:
+
+* 89% / 75.33% / 84.79% / 82% / 100% attack blocking. Withdrawn; see the
+  "Withdrawn" sections below.
+* SCI-600 as evidence of generalisation. It is a project-internal synthetic
+  fixture and must not be cited that way.
+
+**Not measured** — do not infer these from anything above:
+
+* Attack success rate, benign utility, task success. Requires the official
+  AgentDojo sandbox with a grader.
+* Behavioural adaptation after an intervention. Offline replay measures
+  interception on logged behaviour only.
+* Instruction-detector generalisation: 0/9 recall on held-out phrasings
+  (`benchmark/held_out_generalisation.py`), which is why the corpus-specific
+  markers are off by default.
+
+**Still open:** separating untrusted content from ordinary retrieved content,
+which is what the 41.2% benign trace-block rate measures. That is the research
+question, not a defect to tune away.
+
+The sections below are the history of how those numbers were reached and what
+was withdrawn along the way. They are kept for provenance, not as current
+results.
 
 ## Why this file exists
 
