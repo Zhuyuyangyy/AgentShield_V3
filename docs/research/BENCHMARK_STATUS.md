@@ -1,6 +1,6 @@
 # Benchmark Status — read this before quoting any number
 
-## Current status (as of commit `c7b6bd2`, K.2 freeze hygiene)
+## Current status (as of `v0.3.1-research`)
 
 The evaluation harness is now label-free and reproducible, and GitHub Actions
 is green across all six jobs (lint, test 3.11, test 3.12, typecheck, benchmark,
@@ -10,12 +10,13 @@ docker).
 
 | Result | Value | Where |
 |---|---|---|
-| Observability gap (the core claim) | single-event gate blocks 3.5% of attack trajectories | `benchmark/agentdojo_trace_replay.py` |
-| Provenance effect | attack trace block 0.035 → 0.160 | same |
+| Observability gap (the core claim) | single-event gate blocks **0%** of sampled attack trajectories | `benchmark/agentdojo_trace_replay.py` |
+| Effect of seeing earlier tool output | attack trace block 0.000 → 0.035 | same |
+| Incremental effect of entity provenance | attack trace block 0.035 → 0.160 | same |
 | Cost of that effect | benign trace block 19.6% → 41.2% | same |
 | Paired control | identical final calls, different decisions by source | `benchmark/paired_trajectory_eval.py` |
 | Evaluator isolation | 3,360 metadata permutations, 0 changed predictions | `benchmark/leakage_invariance.py` |
-| Governance latency | p50 0.27 ms, p95 0.61 ms, p99 3.95 ms | same trace replay |
+| Governance latency | p50 0.47 ms, p95 5.32 ms, p99 6.96 ms | same trace replay |
 | SCI-600 (self-labelled fixture) | AgentShield 43.33% action acc / 31.34% BLOCK recall, **not** the best on that set | `benchmark/fair_evaluate.py` |
 
 **Superseded** — earlier figures replaced by the rows above:

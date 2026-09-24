@@ -337,7 +337,7 @@ markers are now off by default
 (`AGENTSHIELD_ENABLE_CORPUS_MARKERS=1` to re-enable for corpus-local ablations).
 
 **Governance latency** (per call, around `process_tool_call` only, excluding
-data loading and any model time): p50 0.27 ms, p95 0.61 ms, p99 3.95 ms.
+data loading and any model time): p50 0.47 ms, p95 5.32 ms, p99 6.96 ms.
 
 ### SCI-600 (600 synthetic cases, self-labelled)
 
