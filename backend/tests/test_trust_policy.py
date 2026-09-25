@@ -1,15 +1,20 @@
 """Tests for the v0.4 trust policy and explicit user authorisation.
 
-The v0.4 experiment was a negative result (see BENCHMARK_STATUS.md), but two
-mechanisms in it are worth keeping and worth pinning:
+The v0.4 experiment did not produce a Pareto improvement (see
+BENCHMARK_STATUS.md), but two mechanisms in it are worth keeping and worth
+pinning:
 
 * the tool-semantics trust classification, which is a real improvement over the
-  binary "all output is untrusted" policy;
+  binary "all output is untrusted" policy -- and which v0.4.1 records as
+  *evidence only*, so that fixing the authorisation semantics is not confounded
+  with a second change to the risk mathematics;
 * the authorisation rule, whose *strictness* was validated empirically -- the
-  loose leading-label match it originally used authorised 14 of 14 attack
-  trajectories that v0.3 had blocked.
+  loose leading-label match it originally used authorised 14 of the 14 attack
+  trajectories that v0.3 had blocked, a 100% false-authorisation rate.
 
-These tests pin the strict behaviour so the loose variant cannot come back.
+These tests pin the strict behaviour so the loose variant cannot come back, and
+pin the v0.4.1 safety invariant: authorization may explain provenance-derived
+suspicion, but it cannot authorize away independently dangerous behavior.
 """
 
 from __future__ import annotations
@@ -160,7 +165,17 @@ class TestUserAuthorisationIsStrict:
 
 
 class TestAuthorisationCapsRisk:
-    """An authorised action must suppress the presence-based alarm."""
+    """Authorisation may explain provenance suspicion; nothing else.
+
+    The design invariant of v0.4.1: *authorization may explain
+    provenance-derived suspicion, but it cannot authorize away independently
+    dangerous behavior.* These tests pin both halves of that sentence.
+
+    The earlier implementation capped the **combined** peak, so an authorised
+    call carried a 0.95 local risk out at 0.55. That was the bypass, and the
+    test asserting exactly that behaviour was pinned as a regression test. It
+    is inverted here.
+    """
 
     @staticmethod
     def _signal(signal_type, score, caps=None):
@@ -173,62 +188,39 @@ class TestAuthorisationCapsRisk:
             caps_risk=caps,
         )
 
-    def test_ceiling_is_applied(self):
+    @staticmethod
+    def _auth_signal():
         from app.shield.risk_signals import (
             AUTHORISED_ACTION_CEILING,
-            GraphRiskState,
+            RiskSignal,
             RiskSignalType,
         )
 
-        state = GraphRiskState(
-            local_risk=0.95,
-            signals=[
-                self._signal(
-                    RiskSignalType.USER_AUTHORIZED_ACTION,
-                    0.20,
-                    caps=AUTHORISED_ACTION_CEILING,
-                )
-            ],
-            confidence=1.0,
+        return RiskSignal(
+            signal_type=RiskSignalType.USER_AUTHORIZED_ACTION,
+            score=0.0,
+            evidence=["operator named the action and the entity"],
+            caps_risk=AUTHORISED_ACTION_CEILING,
         )
-        assert state.combined_risk == pytest.approx(AUTHORISED_ACTION_CEILING)
 
-    def test_uncapped_signal_still_dominates(self):
-        from app.shield.risk_signals import GraphRiskState, RiskSignalType
+    def test_authorisation_does_not_suppress_hard_local_risk(self):
+        """bulk delete 0.95 + authorized -> 0.95 BLOCK, not 0.55."""
+        from app.shield.risk_signals import GraphRiskState
 
         state = GraphRiskState(
             local_risk=0.95,
-            signals=[self._signal(RiskSignalType.UNTRUSTED_INSTRUCTION, 0.95)],
+            signals=[self._auth_signal()],
             confidence=1.0,
         )
         assert state.combined_risk == pytest.approx(0.95)
 
-    def test_lowest_cap_wins(self):
-        from app.shield.risk_signals import (
-            AUTHORISED_ACTION_CEILING,
-            TRUSTED_ENTITY_CEILING,
-            GraphRiskState,
-            RiskSignalType,
-        )
+    def test_authorisation_caps_only_destination_provenance(self):
+        """An authorised send whose destination came from untrusted text.
 
-        state = GraphRiskState(
-            local_risk=0.95,
-            signals=[
-                self._signal(
-                    RiskSignalType.TRUSTED_ENTITY_RESOLUTION, 0.35,
-                    caps=TRUSTED_ENTITY_CEILING,
-                ),
-                self._signal(
-                    RiskSignalType.USER_AUTHORIZED_ACTION, 0.20,
-                    caps=AUTHORISED_ACTION_CEILING,
-                ),
-            ],
-            confidence=1.0,
-        )
-        assert state.combined_risk == pytest.approx(AUTHORISED_ACTION_CEILING)
-
-    def test_cap_does_not_erase_structural_violation_entirely(self):
-        """A capped bulk delete still reads as dangerous, just not maximal."""
+        The local structural risk still stands (0.20), so the verdict falls to
+        REVIEW rather than BLOCK -- the ceiling only bounds the provenance
+        alarm the operator's request legitimately explains.
+        """
         from app.shield.risk_signals import (
             AUTHORISED_ACTION_CEILING,
             GraphRiskState,
@@ -236,17 +228,117 @@ class TestAuthorisationCapsRisk:
         )
 
         state = GraphRiskState(
-            local_risk=0.95,  # e.g. bulk delete
+            local_risk=0.20,
             signals=[
-                self._signal(
-                    RiskSignalType.USER_AUTHORIZED_ACTION, 0.20,
-                    caps=AUTHORISED_ACTION_CEILING,
-                )
+                self._signal(RiskSignalType.DESTINATION_PROVENANCE, 0.90),
+                self._auth_signal(),
             ],
             confidence=1.0,
         )
-        assert 0.0 < state.combined_risk < 0.95
-        assert state.combined_risk == pytest.approx(AUTHORISED_ACTION_CEILING)
+        assert state.combined_risk == pytest.approx(
+            max(0.20, AUTHORISED_ACTION_CEILING)
+        )
+        assert state.combined_risk < 0.90
+
+    def test_authorisation_does_not_suppress_injection(self):
+        """An instruction that arrived untrusted is evidence of manipulation."""
+        from app.shield.risk_signals import GraphRiskState, RiskSignalType
+
+        state = GraphRiskState(
+            local_risk=0.20,
+            signals=[
+                self._signal(RiskSignalType.UNTRUSTED_INSTRUCTION, 0.95),
+                self._auth_signal(),
+            ],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.95)
+
+    def test_authorisation_does_not_suppress_inherited_risk(self):
+        """Risk propagated along the graph is not the operator's to pardon."""
+        from app.shield.risk_signals import GraphRiskState
+
+        state = GraphRiskState(
+            local_risk=0.20,
+            inherited_risk=0.95,
+            signals=[self._auth_signal()],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.95)
+
+    def test_authorisation_does_not_suppress_intervention_value(self):
+        """Counterfactual value is not provenance either."""
+        from app.shield.risk_signals import GraphRiskState
+
+        state = GraphRiskState(
+            local_risk=0.20,
+            intervention_value=0.80,
+            signals=[self._auth_signal()],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.80)
+
+    def test_suppression_evidence_does_not_create_risk(self):
+        """Trust evidence must never be able to manufacture a score.
+
+        A "this is a trusted resolution" observation raising risk on its own is
+        semantically backwards: with nothing else happening the score is 0.
+        """
+        from app.shield.risk_signals import GraphRiskState, RiskSignalType
+
+        state = GraphRiskState(
+            signals=[
+                self._auth_signal(),
+                self._signal(RiskSignalType.TRUSTED_ENTITY_RESOLUTION, 0.35),
+            ],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.0)
+
+    def test_unknown_signal_type_fails_closed(self):
+        """A future signal type must be hard unless classified otherwise."""
+        from app.shield.risk_signals import GraphRiskState, RiskSignalType
+
+        state = GraphRiskState(
+            local_risk=0.20,
+            signals=[
+                self._signal(RiskSignalType.SENSITIVE_SOURCE, 0.85),
+                self._auth_signal(),
+            ],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.85)
+
+    def test_cross_agent_delegation_is_not_taint(self):
+        """Tempering taint must not temper genuine cross-agent delegation."""
+        from app.shield.risk_signals import (
+            AUTHORISED_ACTION_CEILING,
+            GraphRiskState,
+            RiskSignalType,
+        )
+
+        delegated = GraphRiskState(
+            local_risk=0.20,
+            signals=[
+                self._signal(RiskSignalType.CROSS_AGENT_DELEGATION, 0.80),
+                self._auth_signal(),
+            ],
+            confidence=1.0,
+        )
+        tainted = GraphRiskState(
+            local_risk=0.20,
+            signals=[
+                self._signal(RiskSignalType.TAINT_PROPAGATION, 0.80),
+                self._auth_signal(),
+            ],
+            confidence=1.0,
+        )
+        # Delegation is structural and survives authorisation untouched.
+        assert delegated.combined_risk == pytest.approx(0.80)
+        # Taint is a provenance alarm and is bounded by the ceiling.
+        assert tainted.combined_risk == pytest.approx(
+            max(0.20, AUTHORISED_ACTION_CEILING)
+        )
 
 
 if __name__ == "__main__":
@@ -318,37 +410,52 @@ class TestReadOnlyGuard:
         assert _blocked(v04) != "block"
 
 
-class TestTrustSignalsCapRisk:
-    """The trust signals must bound the score, not just add a low one."""
+class TestTrustSignalsAreEvidenceOnly:
+    """v0.4.1: trusted-entity resolution is evidence, not trust policy.
 
-    def test_trusted_resolution_caps_below_the_alarm(self):
+    Giving a "resolved from a trusted store" observation its own ceiling in the
+    same change as the authorisation fix would move two variables at once. The
+    trust classification itself stays (it is a real improvement over "all
+    output is untrusted"); only its participation in the score is deferred to a
+    separate ablation.
+    """
+
+    def test_trusted_resolution_does_not_temper_risk(self):
         from app.shield.risk_signals import (
-            TRUSTED_ENTITY_CEILING,
             GraphRiskState,
             RiskSignal,
             RiskSignalType,
         )
 
         state = GraphRiskState(
-            local_risk=0.9,
+            local_risk=0.90,
             signals=[
                 RiskSignal(
                     signal_type=RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
-                    score=0.35,
+                    score=0.0,
                     evidence=["resolved from structured content"],
-                    caps_risk=TRUSTED_ENTITY_CEILING,
+                    # caps_risk intentionally absent in v0.4.1.
                 )
             ],
             confidence=1.0,
         )
-        assert state.combined_risk == pytest.approx(TRUSTED_ENTITY_CEILING)
-        # Below the 0.90 alarm it is meant to temper.
-        assert TRUSTED_ENTITY_CEILING < 0.90
+        assert state.combined_risk == pytest.approx(0.90)
 
-    def test_authorisation_caps_lower_than_trusted_resolution(self):
+    def test_trusted_resolution_never_creates_risk(self):
         from app.shield.risk_signals import (
-            AUTHORISED_ACTION_CEILING,
-            TRUSTED_ENTITY_CEILING,
+            GraphRiskState,
+            RiskSignal,
+            RiskSignalType,
         )
 
-        assert AUTHORISED_ACTION_CEILING < TRUSTED_ENTITY_CEILING
+        state = GraphRiskState(
+            signals=[
+                RiskSignal(
+                    signal_type=RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
+                    score=0.0,
+                    evidence=["resolved from financial content"],
+                )
+            ],
+            confidence=1.0,
+        )
+        assert state.combined_risk == pytest.approx(0.0)

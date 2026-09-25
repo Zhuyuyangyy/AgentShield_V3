@@ -120,9 +120,9 @@ def extract_provenance_signals(
     makes the ablation a real difference rather than the same code twice.
 
     ``enable_trust_policy=True`` switches on the v0.4 refinements: destinations
-    arriving through structured or financial content are down-weighted by the
-    tool-semantics prior, and a call the operator explicitly authorised emits a
-    suppression signal instead of an alarm. Both are reported as their own
+    arriving through structured or financial content are recorded as a trusted
+    resolution observation, and a call the operator explicitly authorised emits
+    a suppression signal instead of an alarm. Both are reported as their own
     signals so the effect is auditable rather than a silent score change.
     """
     if taint_tracker is None:
@@ -228,6 +228,9 @@ def extract_provenance_signals(
         ))
 
     # ── 6. Taint propagation into this call ───────────────────────────────
+    # A propagation fact, not a delegation: the entity got here because
+    # untrusted content introduced it. Cross-agent delegation is kept for the
+    # structural relationship, so tempering one does not temper the other.
     propagated: List[str] = []
     for artifact in untrusted_artifacts:
         for entity in artifact.introduced_entities:
@@ -235,7 +238,7 @@ def extract_provenance_signals(
                 propagated.append(entity)
     if propagated and track_taint:
         signals.append(RiskSignal(
-            signal_type=RiskSignalType.CROSS_AGENT_DELEGATION,
+            signal_type=RiskSignalType.TAINT_PROPAGATION,
             score=0.80 * read_only_weight,
             evidence=[
                 f"Entity from untrusted content reaches this call: {e}"
@@ -267,20 +270,27 @@ def _trust_policy_signals(
     user_intent_text: str,
     intent_slots=None,
 ) -> List[RiskSignal]:
-    """v0.4: tool-semantics trust prior plus explicit user authorisation.
+    """v0.4: tool-semantics trust observation plus explicit user authorisation.
 
     Two distinct effects, each surfaced as its own signal:
 
-    * ``TRUSTED_ENTITY_RESOLUTION`` -- the call's destination arrived through
-      structured or financial content rather than an external fetch, so the
-      presence-based alarm is down-weighted.
     * ``USER_AUTHORIZED_ACTION`` -- the operator's request names both this
-      action family and the entity involved, which is authorisation.
+      action family and the entity involved, which is authorisation. It caps
+      the *suppressible provenance band only*; see
+      ``GraphRiskState.combined_risk``.
+    * ``TRUSTED_ENTITY_RESOLUTION`` -- the call's destination arrived through
+      structured or financial content rather than an external fetch. In v0.4.1
+      this is **evidence-only**: it appears in the audit chain and explains the
+      decision, but it neither raises nor lowers the score.
+
+    Keeping trusted resolution inert is deliberate. Giving it the prior-based
+    ceiling in the same change as the authorisation fix would move two
+    variables at once and make the ablation uninterpretable. The intended
+    ladder is v0.4.1a authorisation-only, then v0.4.1b + trusted resolution.
     """
     from app.shield.authorization import user_authorises
     from app.shield.risk_signals import (
         AUTHORISED_ACTION_CEILING,
-        TRUSTED_ENTITY_CEILING,
         RiskSignalType,
     )
     from app.shield.trust_policy import trust_prior
@@ -308,7 +318,10 @@ def _trust_policy_signals(
     if authorisation.get("authorised"):
         signals.append(RiskSignal(
             signal_type=RiskSignalType.USER_AUTHORIZED_ACTION,
-            score=0.20,
+            # Evidence, not risk: the signal must not add anything on its own.
+            # Its whole effect is the ceiling below, and ``combined_risk``
+            # applies that ceiling to the suppressible provenance band only.
+            score=0.0,
             caps_risk=AUTHORISED_ACTION_CEILING,
             evidence=[
                 "Operator's request names the '{family}' action and the "
@@ -326,11 +339,15 @@ def _trust_policy_signals(
         )
         signals.append(RiskSignal(
             signal_type=RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
-            score=0.35,
-            caps_risk=TRUSTED_ENTITY_CEILING,
+            # Evidence-only: score records the observation, it does not carry
+            # risk. The band it would temper is suppressible, and v0.4.1
+            # deliberately leaves it uncapped -- see the module docstring of
+            # ``risk_signals`` for the v0.4.1a / v0.4.1b ablation split.
+            score=0.0,
             evidence=[
-                f"Call entities resolved from {trusted_classes} content; presence-based "
-                f"alarm down-weighted (prior {max(priors)})"
+                f"Call entities resolved from {trusted_classes} content; recorded as "
+                f"evidence only (prior {max(priors)}), not applied as a suppression "
+                "ceiling in v0.4.1"
             ],
             artifact_ids=[
                 a.artifact_id for a in taint_tracker.untrusted_artifacts()[:3]

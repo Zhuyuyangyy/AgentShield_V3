@@ -111,30 +111,30 @@
       "config": "plus_trust_policy_v0_4",
       "benign_traces": 97,
       "benign_steps": 339,
-      "benign_step_block_fpr": 0.0826,
-      "benign_step_review_rate": 0.0708,
-      "benign_trace_block_rate": 0.21649,
+      "benign_step_block_fpr": 0.10914,
+      "benign_step_review_rate": 0.059,
+      "benign_trace_block_rate": 0.28866,
       "attack_traces": 400,
       "attack_trace_detection_rate": 0.07,
       "attack_trace_block_rate": 0.035,
       "delta_vs_v03_provenance": {
         "attack_trace_block_pp": -12.5,
-        "benign_trace_block_pp": -19.59
+        "benign_trace_block_pp": -12.37
       }
     },
     {
       "config": "plus_intent_slots",
       "benign_traces": 97,
       "benign_steps": 339,
-      "benign_step_block_fpr": 0.0826,
-      "benign_step_review_rate": 0.0708,
-      "benign_trace_block_rate": 0.21649,
+      "benign_step_block_fpr": 0.10914,
+      "benign_step_review_rate": 0.059,
+      "benign_trace_block_rate": 0.28866,
       "attack_traces": 400,
       "attack_trace_detection_rate": 0.07,
       "attack_trace_block_rate": 0.035,
       "delta_vs_v03_provenance": {
         "attack_trace_block_pp": -12.5,
-        "benign_trace_block_pp": -19.59
+        "benign_trace_block_pp": -12.37
       }
     }
   ],

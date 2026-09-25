@@ -1,6 +1,6 @@
 # Benchmark Status — read this before quoting any number
 
-## Current status (as of `v0.3.1-research`)
+## Current status (as of `v0.4.1`, on top of the frozen `v0.3.1-research` ladder)
 
 The evaluation harness is now label-free and reproducible, and GitHub Actions
 is green across all six jobs (lint, test 3.11, test 3.12, typecheck, benchmark,
@@ -17,7 +17,13 @@ docker).
 | Paired control | identical final calls, different decisions by source | `benchmark/paired_trajectory_eval.py` |
 | Evaluator isolation | 3,360 metadata permutations, 0 changed predictions | `benchmark/leakage_invariance.py` |
 | Governance latency | p50 0.47 ms, p95 5.32 ms, p99 6.96 ms | same trace replay |
+| v0.4.1 safe authorisation | attack 0.035 / benign 28.9% trace block | `benchmark/v04_trust_replay.py` |
 | SCI-600 (self-labelled fixture) | AgentShield 43.33% action acc / 31.34% BLOCK recall, **not** the best on that set | `benchmark/fair_evaluate.py` |
+
+The `v0.4.1 safe authorisation` row is the current configuration to quote. It
+is the v0.4 trust policy with the authorisation bypass closed: authorisation
+caps only the provenance band and cannot pardon structural risk. See the
+"v0.4.1" section below for the invariant and for the measured cost of the fix.
 
 **Superseded** — earlier figures replaced by the rows above:
 
@@ -25,6 +31,8 @@ docker).
   "Withdrawn" sections below.
 * SCI-600 as evidence of generalisation. It is a project-internal synthetic
   fixture and must not be cited that way.
+* the v0.4 benign figure of 21.6%, produced while authorisation still capped
+  the combined peak and could pardon a hard structural violation.
 
 **Not measured** — do not infer these from anything above:
 
@@ -38,7 +46,12 @@ docker).
 
 **Still open:** separating untrusted content from ordinary retrieved content,
 which is what the 41.2% benign trace-block rate measures. That is the research
-question, not a defect to tune away.
+question, not a defect to tune away. The residual after v0.4.1 is 28.9%; it
+comes from trajectories where the operator's request names an action family
+but not the specific entity, so no authorisation can be established and the
+presence-based signal stands. Resolving it needs the operator's intent captured
+as structured slots at request time by the calling application, not recovered
+from prose afterwards — which is a protocol change, not a detector change.
 
 The sections below are the history of how those numbers were reached and what
 was withdrawn along the way. They are kept for provenance, not as current
@@ -717,7 +730,7 @@ Full ladder after both refinements (same 97 benign / 400 attack trajectories):
 | + untrusted output inspection | 0.035 | 19.6% |
 | + entity provenance (v0.3) | 0.160 | 41.2% |
 | + intent consistency | 0.160 | 41.2% |
-| **+ trust policy + read guard + caps (v0.4)** | **0.035** | **21.6%** |
+| + trust policy + read guard + caps (v0.4) | 0.035 | 21.6% |
 
 Read together with the row above it, the honest summary is: **v0.3's 16.0%
 attack-block figure was 78% false positives.** v0.4 blocks a third as many
@@ -727,14 +740,77 @@ roughly halves.
 The read-only guard is gated behind the trust-policy flag so the v0.3 ladder
 stays comparable with the frozen v0.3.1-research release.
 
+### v0.4.1 — authorisation stops pardoning structural risk
+
+Re-running the same harness after fixing the authorisation semantics changes
+two of the v0.4 numbers, and this is the configuration that should be quoted
+going forward:
+
+| Configuration | attack trace block | benign trace block |
+|---|---|---|
+| `local_only` | 0.000 | 1.0% |
+| + untrusted output inspection | 0.035 | 19.6% |
+| + entity provenance (v0.3) | 0.160 | 41.2% |
+| + intent consistency | 0.160 | 41.2% |
+| **v0.4.1 safe authorisation** | **0.035** | **28.9%** |
+
+What changed and why. The v0.4 cap was applied to the **combined** peak, so an
+authorised call could carry a hard structural violation out at the ceiling
+value: a bulk delete the operator had asked for scored 0.55 instead of 0.95.
+That is an authorisation bypass, and it was pinned as a regression test.
+
+v0.4.1 splits the score into two bands that authorisation may not bridge:
+
+* **unsuppressible** — `local_risk`, `inherited_risk`, `path_risk`,
+  `downstream_exposure`, and every signal classified as structural in
+  `UNSUPPRESSIBLE_SIGNALS` (privilege change, audit tamper, bulk
+  destruction, credential access, policy evasion, untrusted instruction,
+  untrusted→privileged, sensitive→external, cross-agent delegation). An
+  unknown future signal type is hard by default: fail closed rather than
+  silently suppressible.
+* **suppressible** — the provenance alarms whose entire content is "this came
+  from somewhere the operator did not name": destination provenance,
+  intent-origin mismatch, taint propagation. Authorisation caps **only** this
+  band, which is what keeps an authorised payment from being blocked on a
+  provenance alarm while still blocking an authorised bulk delete.
+
+Also in this pass:
+
+* `TRUSTED_ENTITY_RESOLUTION` became **evidence-only** in v0.4.1 — it appears
+  in the audit chain but neither raises nor lowers the score. Giving it a
+  ceiling in the same commit would have moved two variables at once and made
+  the ablation uninterpretable. The trust *classification* is unchanged; only
+  its participation in the score is deferred. Intended ladder:
+  v0.4.1a authorisation-only, then v0.4.1b + trusted resolution.
+* The taint-propagation signal was emitting `CROSS_AGENT_DELEGATION`, which is
+  a different risk. It now emits the new `TAINT_PROPAGATION` type, so that
+  tempering taint will not tacitly temper genuine cross-agent delegation.
+* Suppression evidence no longer contributes score. A "this is a trusted
+  resolution" observation cannot manufacture risk on its own.
+
+The design invariant this pins: **authorization may explain provenance-derived
+suspicion, but it cannot authorize away independently dangerous behavior.**
+
+```
+bulk delete 0.95 + authorized        -> 0.95 BLOCK   (unchanged by v0.4.1)
+ordinary send, local 0.70,
+destination provenance 0.90,
+explicitly authorized                -> 0.70 REVIEW  (not 0.55, not BLOCK)
+```
+
+Cost of the fix, measured rather than assumed: benign trace blocking rises
+from 21.6% to 28.9%, because trajectories whose only risk was provenance no
+longer get the whole combined peak pardoned. The ceilings were **not** retuned
+to recover the old numbers — doing so would be benchmark fitting.
+
 ### What still limits it
 
-The 30.9% residual benign blocking is the open problem. It comes from
+The residual after v0.4.1 is 28.9% benign trace blocking. It comes from
 trajectories where the operator's request names an action family but not the
-specific entity, so no authorisation can be established and the
-presence-based signal stands. Resolving it needs the operator's intent captured
-as structured slots at request time by the calling application, not recovered
-from prose afterwards -- which is a protocol change, not a detector change.
+specific entity, so no authorisation can be established and the presence-based
+signal stands. Resolving it needs the operator's intent captured as structured
+slots at request time by the calling application, not recovered from prose
+afterwards -- which is a protocol change, not a detector change.
 
 ### What survives
 
@@ -746,4 +822,6 @@ RQ1 and RQ2 are unaffected and remain the paper's contribution:
   negative result with a diagnosis is a result.
 
 The v0.3 freeze `v0.3.1-research` remains the canonical experiment set; this
-section records the follow-up that did not improve on it.
+section records the follow-up that did not improve on it. v0.4.1 sits on top of
+it as a correctness fix to authorisation rather than as a new result, and its
+own numbers are reported in the v0.4.1 section above.

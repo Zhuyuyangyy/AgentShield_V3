@@ -6,8 +6,9 @@ v0.4 matched the operator's request *as prose* against the call being governed.
 On AgentDojo that cannot work: a user task reads "email the attendee list to
 X" or "delete file 13", and an injected instruction asks the agent to do
 something inside that same task, frequently naming an entity the task already
-mentions. Measured: `user_authorized_action` fired on 14 of the 14 attack
-trajectories v0.3 had blocked -- a 100% false-authorisation rate.
+mentions. Measured at the time: `user_authorized_action` fired on every attack
+trajectory v0.3 had blocked -- a 100% false-authorisation rate (14/14 on the
+sampled set).
 
 What this module changes
 ------------------------

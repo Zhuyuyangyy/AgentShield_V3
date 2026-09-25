@@ -10,16 +10,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-# Ceiling applied to the combined risk when the operator explicitly authorised
-# the action. Authorisation suppresses presence-based alarms (that is what
-# makes a user-requested payment pass) without erasing structural violations.
+# Ceiling applied to the *suppressible* band when the operator explicitly
+# authorised the action. Authorisation may explain provenance-derived
+# suspicion; it cannot authorise away independently dangerous behaviour, so it
+# never touches the structural band.
 AUTHORISED_ACTION_CEILING = 0.55
 
-# Ceiling applied when the call's entities were resolved from structured or
-# financial content rather than an external fetch. Weaker than full
-# authorisation: an entity arriving through a trusted *store* is more likely
-# legitimate than one scraped off a web page, but the operator never named it,
-# so it does not get the authorisation ceiling.
+# Ceiling used only by the v0.4.1b ablation, which re-enables trusted-entity
+# resolution as an active suppression mechanism. v0.4.1 deliberately leaves it
+# unused: a "this entity came from a trusted store" observation is recorded as
+# evidence, not applied as trust policy, so the authorisation fix is not
+# confounded with a second change to the risk mathematics.
 TRUSTED_ENTITY_CEILING = 0.70
 
 
@@ -41,11 +42,71 @@ class RiskSignalType(str, Enum):
     INTENT_ORIGIN_MISMATCH = "intent_origin_mismatch"
     SENSITIVE_TO_EXTERNAL_FLOW = "sensitive_to_external_flow"
     UNTRUSTED_TO_PRIVILEGED_ACTION = "untrusted_to_privileged_action"
+    # An entity introduced by untrusted content reaching this call. This is a
+    # *propagation* fact, not a delegation: cross-agent delegation is a
+    # structural relationship between agents, and conflating the two meant that
+    # tempering taint would also have tempered genuine delegation risk.
+    TAINT_PROPAGATION = "taint_propagation"
     # ── Trust calibration signals (v0.4) ────────────────────────────────
-    # These *suppress* risk rather than raise it: they record why a call the
+    # These *temper* risk rather than raise it: they record why a call the
     # presence-based rules would flag is in fact authorised or benign.
     USER_AUTHORIZED_ACTION = "user_authorized_action"
     TRUSTED_ENTITY_RESOLUTION = "trusted_entity_resolution"
+
+
+# ─── Signal classification ────────────────────────────────────────────────
+# ``combined_risk`` splits into two bands that authorisation may not bridge:
+#
+#   unsuppressible -- danger that is true regardless of who asked. A bulk
+#                     delete, a privilege change, an instruction that arrived
+#                     untrusted, sensitive material leaving the boundary.
+#                     Authorisation explains provenance; it cannot pardon an
+#                     independently dangerous action.
+#   suppressible   -- provenance alarms whose whole content is "this came from
+#                     somewhere the operator did not name": destination
+#                     provenance, intent-origin mismatch, taint propagation.
+#                     These are what authorisation legitimately tempers.
+#
+# The design invariant of v0.4.1: authorization may explain provenance-derived
+# suspicion, but it cannot authorize away independently dangerous behavior.
+
+UNSUPPRESSIBLE_SIGNALS = frozenset({
+    # Hard structural violations of the call itself. The operator asking for
+    # them does not make them safe.
+    RiskSignalType.PRIVILEGE_CHANGE,
+    RiskSignalType.AUDIT_TAMPER,
+    RiskSignalType.BULK_OPERATION,
+    RiskSignalType.CREDENTIAL_ACCESS,
+    RiskSignalType.POLICY_EVASION,
+    # Content that arrived untrusted and reads as an instruction is evidence of
+    # manipulation, not of provenance.
+    RiskSignalType.UNTRUSTED_INSTRUCTION,
+    RiskSignalType.UNTRUSTED_TO_PRIVILEGED_ACTION,
+    # The exfiltration is the harm, whoever named the destination.
+    RiskSignalType.SENSITIVE_TO_EXTERNAL_FLOW,
+    # A delegation relationship is structural, not a provenance accident.
+    RiskSignalType.CROSS_AGENT_DELEGATION,
+})
+
+SUPPRESSIBLE_PROVENANCE_SIGNALS = frozenset({
+    RiskSignalType.DESTINATION_PROVENANCE,
+    RiskSignalType.INTENT_ORIGIN_MISMATCH,
+    RiskSignalType.TAINT_PROPAGATION,
+})
+
+# Suppression evidence: these may lower the suppressible band. They are *not*
+# risk themselves -- a "this is a trusted resolution" observation must never be
+# able to manufacture a score out of nothing.
+SUPPRESSION_EVIDENCE_SIGNALS = frozenset({
+    RiskSignalType.USER_AUTHORIZED_ACTION,
+    RiskSignalType.TRUSTED_ENTITY_RESOLUTION,
+})
+
+_CLASSIFIED_SIGNALS = (
+    UNSUPPRESSIBLE_SIGNALS
+    | SUPPRESSIBLE_PROVENANCE_SIGNALS
+    | SUPPRESSION_EVIDENCE_SIGNALS
+)
 
 
 @dataclass
@@ -62,10 +123,10 @@ class RiskSignal:
     # Artifacts this signal was derived from. Provenance signals use it so a
     # decision can be explained as "destination X first appeared in artifact Y".
     artifact_ids: List[str] = field(default_factory=list)
-    # When set, this signal *caps* the combined risk instead of contributing to
-    # it. Used by the v0.4 trust-calibration signals: without it, a low-scoring
-    # "this looks authorised" signal is simply maxed away by the 0.9 presence
-    # alarm it is meant to temper, and the tempering has no effect at all.
+    # Kept for construction compatibility. ``combined_risk`` derives the
+    # suppression band from the classification frozensets above rather than
+    # from per-signal fields, so a cap cannot be attached to a signal that
+    # ought to be unsuppressible.
     caps_risk: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -111,58 +172,69 @@ class GraphRiskState:
         Preserved invariant: when every component equals ``x`` and
         ``confidence == 1.0``, ``combined_risk == x``.
         """
-        # ``signals`` is part of the max, not decoration. Provenance signals
-        # (untrusted instruction, destination provenance) are appended by the
-        # engine after the graph-context state is built; leaving them out of the
-        # aggregate meant a 0.95 injection signal could accompany a 0.0 score.
-        components = [
+        # ---------------------------------------------------------------
+        # Two bands, with one gate between them and no bridge across it.
+        # ---------------------------------------------------------------
+        # Runtime and graph structural risk is never suppressible, whatever
+        # the signals say.
+        structural_components = [
             self.local_risk,
             self.inherited_risk,
             self.path_risk,
             self.downstream_exposure,
         ]
-        if self.signals:
-            components.append(max(s.score for s in self.signals))
-        peak = max(components) if components else 0.0
 
-        if peak <= 0.0:
-            return 0.0
+        hard_signal_scores: List[float] = []
+        suppressible_scores: List[float] = []
+        for signal in self.signals:
+            if signal.signal_type in SUPPRESSIBLE_PROVENANCE_SIGNALS:
+                suppressible_scores.append(signal.score)
+            elif signal.signal_type in SUPPRESSION_EVIDENCE_SIGNALS:
+                # Evidence, not risk. Recording that the operator authorised a
+                # call must not, by itself, raise the score above zero.
+                continue
+            elif signal.signal_type in UNSUPPRESSIBLE_SIGNALS:
+                hard_signal_scores.append(signal.score)
+            else:
+                # Fail closed for any future risk signal type: an unknown
+                # signal is hard unless it is explicitly classified otherwise.
+                hard_signal_scores.append(signal.score)
 
-        # v0.4: explicit operator authorisation caps the score.
-        #
-        # Authorisation is not just another signal to be maxed against -- the
-        # whole point is that it *suppresses* the presence-based alarms. A task
-        # that says "pay Apple the missing VAT" would otherwise be blocked
-        # because the agent read transactions and then sent money, which is
-        # exactly the 41.2% benign trace-block rate v0.3 measured.
-        #
-        # The cap is deliberately partial rather than zero: authorisation from
-        # the operator's request does not erase a hard structural violation
-        # (a bulk delete still reads as dangerous), it only bounds how high the
-        # presence-based evidence may push the score.
-        # Any signal carrying `caps_risk` bounds the peak. The lowest cap wins,
-        # so an explicit authorisation still overrides a weaker trusted-entity
-        # ceiling when both are present.
-        caps = [s.caps_risk for s in self.signals if s.caps_risk is not None]
+        hard_peak = max(
+            [*structural_components, *hard_signal_scores],
+            default=0.0,
+        )
+        suppressible_peak = max(suppressible_scores, default=0.0)
+
+        # Authorisation caps the provenance band only. The lowest explicit
+        # cap wins, so an authorisation still overrides a weaker
+        # trusted-entity ceiling if that ablation is ever re-enabled.
+        caps = [
+            s_.caps_risk for s_ in self.signals
+            if s_.caps_risk is not None
+            and s_.signal_type in SUPPRESSION_EVIDENCE_SIGNALS
+        ]
         if caps:
-            peak = min(peak, *caps)
+            suppressible_peak = min([suppressible_peak, *caps])
+
+        peak = max(hard_peak, suppressible_peak)
+
+        # Counterfactual / intervention risk must not be pardoned by
+        # authorisation: it measures the value of stopping here, not who asked.
+        if self.intervention_value > peak:
+            peak = self.intervention_value
 
         # No confidence discount and no intervention bonus in the base case, so
         # that "all components equal x, confidence 1.0" yields exactly x -- the
         # invariant test_api_routes._make_risk_state relies on.
-        score = peak
-        if self.intervention_value > peak:
-            # A very high intervention value can lift the score, but never by
-            # more than the intervention value itself.
-            score = self.intervention_value
-
+        #
         # ``confidence`` measures how much evidence was seen, not how dangerous
         # the event is. Discounting by it meant a single decisive signal
         # (confidence 0.6, i.e. "one signal, short chain") could never reach
         # the BLOCK threshold, which is exactly the thin-evidence case where
         # over-blocking is the safer error. It is therefore reported but does
         # not reduce the score.
-        return max(0.0, min(1.0, score))
+        return max(0.0, min(1.0, peak))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
