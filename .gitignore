@@ -15,3 +15,11 @@ venv/
 
 # Local agent harness state
 .reasonix/
+
+# Reproduction artifacts are regenerated locally by
+# benchmark/v04_trust_replay.py --out ... and verified by
+# scripts/verify_v04_reproduction.py. Only the canonical
+# benchmark/results/v0_4_trust_pareto.json belongs in version control; a
+# reproduced copy must never be committed as if it were canonical.
+benchmark/results/*.reproduced.json
+

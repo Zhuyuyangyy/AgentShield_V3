@@ -329,6 +329,13 @@ Two things to read from that table:
   19.6% to 41.2%. The trade-off is open, and this repository reports it rather
   than tuning it away. Closing it is the research question, not a bug to fix.
 
+The ladder above is the frozen v0.3 causal ablation (RQ1/RQ2) and is kept as-is
+for comparability. A v0.4.1 follow-up reduces benign trace blocking to 28.9%
+under safe authorization semantics while the raw blocking rate on
+attack-labelled trajectories falls from 16.0% to 3.5%; see
+`docs/research/BENCHMARK_STATUS.md` for interpretation and
+`docs/research/REPRODUCIBILITY.md` for reproduction.
+
 An earlier revision of this experiment reported 100% attack blocking. That
 number came from instruction markers fitted to this benchmark's phrasing;
 `benchmark/held_out_generalisation.py` evaluates the detector frozen on
