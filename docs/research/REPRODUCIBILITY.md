@@ -24,7 +24,11 @@ One commit sits on top of it, reproducibility-only:
 
 | Change | What it adds |
 |---|---|
-| this commit | this document, the verifier, the fingerprint script, their tests, and a `.gitignore` entry for the reproduced artifact |
+| this document's own commit (`83dddd7`) | this document, the verifier, the fingerprint script, their tests, and a `.gitignore` entry for the reproduced artifact |
+
+`83dddd7` is named because that commit adds this file; the document is
+self-referential by necessity. Everything below describes the state of the code
+as of `49127cd`, which `83dddd7` does not alter.
 
 **Research logic frozen at `49127cd`.** Reproducibility-only changes after that
 commit do not alter detector or benchmark semantics. If a reproduction ever
@@ -34,8 +38,12 @@ change, because none was made.
 Head of `main` after this pass:
 
 ```text
-<filled in by the commit that adds this file>
+83dddd7 docs(research): make v0.4.1 replay independently reproducible
 ```
+
+If your checkout's HEAD differs from `49127cd` or `83dddd7`, you are not looking
+at the audited revision; the reproduction numbers below are not guaranteed to
+apply to a different revision.
 
 ## 2. Environment
 
