@@ -51,19 +51,47 @@ The paper makes five contributions:
 
 ## 2. Related Work
 
-**[unchanged from v0.3.1]**
+**[unchanged from v0.3.1 except as marked: §2.2 and §2.3 revised and §2.4–§2.7 added in v0.4.1]**
 
 ### 2.1 Indirect prompt injection in tool-integrated agents
 
 InjecAgent demonstrates that indirect prompt injection can manipulate tool-integrated agents through externally supplied content, and evaluates a large collection of injected agent tasks [1]. AgentDojo provides a dynamic environment for evaluating attacks and defenses in tool-using agents and makes explicit that untrusted tool outputs can carry instructions that conflict with the operator intent [2]. These benchmarks motivate the threat model studied here: dangerous behavior may emerge only after the model has consumed earlier external content.
 
+Subsequent work broadened the attack surface in directions our replay does not model. ToolHijacker poisons the tool document itself rather than a tool *response*, manipulating tool selection [7]. Automated optimization-based attackers inject adversarial suffixes learned by reinforcement learning and transfer them to models fine-tuned for injection resistance [21]. Role confusion offers a mechanistic account, showing that injected text occupies the same representational space as the role it imitates [17]. These results bound the scope of our contribution: we study the runtime governance point, not the model's internal role perception, and our measurements are taken against the frozen dump rather than against adaptive attackers.
+
 ### 2.2 Input separation and provenance-aware defenses
 
 StruQ separates instructions from data through structured queries and trains models to follow only the instruction channel [3]. Spotlighting similarly emphasizes source separation by transforming untrusted inputs so that the model can distinguish them from trusted instructions [4]. AgentShield is complementary: rather than changing the model input format or training objective, it operates at runtime after observations have already entered the session. It asks whether arguments to a proposed action can be traced to untrusted content and whether they are consistent with the operator request.
 
+The same separation idea has been pursued architecturally. An f-secure LLM system disaggregates the pipeline and filters untrusted input out of the planning process, with formal models of the resulting guarantees [6]. IPIGuard decouples action planning from interaction with external data by traversing a planned tool dependency graph [8]. SPA adopts a plan-first design and applies dual-lattice information-flow control across explicit data and control dependencies, extending the threat model to cross-query state reuse [12]. These are structural redesigns of the agent. AgentShield instead accepts the agent as given and adds a governance point in front of the tool boundary, which is why it can be evaluated on logged traces produced without it.
+
 ### 2.3 Agent harmfulness and runtime governance
 
 AgentHarm broadens evaluation from chatbot refusals to multi-step harmful agent behavior [5]. Its focus is malicious task completion under jailbreaks rather than indirect prompt injection, but it underscores why agent safety cannot be reduced to response classification. AgentShield instead studies a runtime control point before tool execution. It does not claim AgentHarm benchmark performance; the repository contains only a metadata-derived proxy, which is excluded from the main evidence in this paper.
+
+Several recent systems share our enforcement point. ClawGuard derives task-specific access constraints from the user's stated objective and enforces a user-confirmed rule set at every tool-call boundary [15]; AgentWatcher attributes an agent action to causally influential context segments and reasons over explicit rules, trading attribution cost for explainability [16]; AttriGuard verifies a proposed tool call by counterfactual re-execution under an attenuated view of external observations [9]. All three are closer to our setting than model-side defenses, and all three require either a monitor model or a re-execution. AgentShield's distinguishing commitment is deterministicity: the provenance signals in Section 4.3 are computed without any model call, which is what makes the prediction-invariance audit in Section 5.1 decidable and the latency in Section 6.5 free of model time.
+
+### 2.4 Information flow control and taint tracking for agents
+
+**[new in v0.4.1]** Classical taint analysis assumes propagation through program memory, an assumption that breaks when propagation is governed by probabilistic language reasoning; NeuroTaint makes this argument explicitly and reconstructs provenance offline from untrusted sources to privileged sinks using semantic and causal evidence rather than exact string matching [10]. Our taint propagation signal is deliberately the weaker, string-based variant — it is what a deterministic, model-free gate can compute — and NeuroTaint's TaintBench results are best read as the upper bound that a semantic tracker could reach on traces like ours. FLOWSEAL grounds confidentiality enforcement in data provenance and an information-flow-control lattice with controlled declassification, and shows that enforcement living inside the LLM context coincides with the attack surface [14]; APPA argues that monotone taint tracking either over-blocks benign work or strands execution, and adds policy-governed recovery [11]. GIF provides a locally sound geometric bound on information flow with a mechanized proof, addressing the taint-explosion problem directly [13].
+
+These works converge on the diagnosis that motivated v0.4.1: the difficulty is not producing a taint label but deciding what to *do* with it when the label conflicts with an action the operator asked for. That is an aggregation question, and Section 7.5 treats it as one.
+
+### 2.5 Governance before the tool boundary
+
+**[new in v0.4.1]** STPA-derived safety requirements formalized as enforceable specifications on data flows and tool sequences move agent safety toward proactive guardrails with stated guarantees rather than reliability fixes [18]. AgentRaft defines data over-exposure as transmitting sensitive data beyond user intent and functional necessity, detecting it with runtime taint tracking over a cross-tool call graph [19]. ToolMinimize goes further and *rewrites* tool arguments to the minimum data necessary, a capability a gate that only returns ALLOW, REVIEW or BLOCK does not have [23].
+
+AgentShield occupies a specific position in this space: it neither rewrites arguments nor re-executes the agent. It decides a ternary action at the boundary from deterministic evidence, and it treats the boundary's *aggregation policy* as a first-class design object with its own invariant.
+
+### 2.6 Automated attacks and benchmark sensitivity
+
+**[new in v0.4.1]** Maatphor generates prompt-injection variants automatically so that candidate defenses are tested against more than the single successful payload that motivated them [20]. This is the methodological reason our held-out evaluation in Section 6.4 exists, and it is also why we report it as a failure: a detector tuned on the benchmark's own phrasing does not survive variant generation.
+
+The same pattern has been observed outside agent benchmarks: cybersecurity tooling built on LLMs was turned against itself by prompt injection in a way explicitly compared to cross-site scripting, with mitigations layered at the tool boundary rather than in the model [22]. We cite it as convergent evidence that the boundary is the right enforcement point, and as a caution that a boundary rule which is not deterministic is itself part of the attack surface.
+
+### 2.7 Positioning
+
+**[new in v0.4.1]** The closest neighbors to AgentShield are the runtime, deterministic gate [15, 16] and the offline provenance reconstruction [10]. AgentShield differs from the former in requiring no monitor model, and from the latter in operating online at the decision point rather than as a post-hoc audit. Its contribution relative to both is the safety invariant of Section 7.5, which is a statement about how *any* such gate should aggregate authorization evidence against structural risk.
 
 ---
 
@@ -373,12 +401,48 @@ Together with the paired source/context control and metadata-invariance audit, t
 
 ## References
 
-[1] Q. Zhan, Z. Liang, Z. Ying, and D. Kang, "InjecAgent: Benchmarking Indirect Prompt Injections in Tool-Integrated Large Language Model Agents," Findings of ACL 2024, pp. 10471–10506, 2024. doi:10.18653/v1/2024.findings-acl.624.
+[1] Q. Zhan, Z. Liang, Z. Ying, and D. Kang, "InjecAgent: Benchmarking Indirect Prompt Injections in Tool-Integrated Large Language Model Agents," *Findings of ACL 2024*, pp. 10471–10506, 2024. doi:10.18653/v1/2024.findings-acl.624.
 
-[2] E. Debenedetti et al., "AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents," arXiv:2406.13352, 2024.
+[2] E. Debenedetti, J. Zhang, M. Balunović, L. Beurer-Kellner, M. Fischer, and F. Tramèr, "AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents," arXiv:2406.13352, 2024.
 
-[3] S. Chen, J. Piet, C. Sitawarin, and D. Wagner, "StruQ: Defending Against Prompt Injection With Structured Queries," arXiv:2402.06363, 2024; later appeared at USENIX Security.
+[3] S. Chen, J. Piet, C. Sitawarin, and D. Wagner, "StruQ: Defending Against Prompt Injection with Structured Queries," in *Proc. USENIX Security Symposium*, 2025. arXiv:2402.06363.
 
-[4] K. Hines, K. Lopez, M. Hall, F. Zarfati, Y. Zunger, and E. Kiciman, "Defending Against Indirect Prompt Injection Attacks With Spotlighting," arXiv:2403.14720, 2024.
+[4] K. Hines, G. Lopez, M. Hall, F. Zarfati, Y. Zunger, and E. Kiciman, "Defending Against Indirect Prompt Injection Attacks With Spotlighting," arXiv:2403.14720, 2024.
 
-[5] M. Andriushchenko et al., "AgentHarm: A Benchmark for Measuring Harmfulness of LLM Agents," arXiv:2410.09024, 2024.
+[5] M. Andriushchenko, A. Souly, M. Dziemian, D. Duenas, M. Lin, J. Wang, D. Hendrycks, A. Zou, Z. Kolter, M. Fredrikson, E. Winsor, J. Wynne, Y. Gal, and X. Davies, "AgentHarm: A Benchmark for Measuring Harmfulness of LLM Agents," in *Proc. ICLR*, 2025. arXiv:2410.09024.
+
+[6] F. Wu, E. Cecchetti, and C. Xiao, "System-Level Defense against Indirect Prompt Injection Attacks: An Information Flow Control Perspective," arXiv:2409.19091, 2024.
+
+[7] J. Shi, Z. Yuan, G. Tie, P. Zhou, N. Z. Gong, and L. Sun, "Prompt Injection Attack to Tool Selection in LLM Agents," arXiv:2504.19793, 2025.
+
+[8] H. An, J. Zhang, T. Du, C. Zhou, Q. Li, T. Lin, and S. Ji, "IPIGuard: A Novel Tool Dependency Graph-Based Defense Against Indirect Prompt Injection in LLM Agents," in *Proc. EMNLP*, 2025. arXiv:2508.15310.
+
+[9] Y. He, H. Zhu, Y. Li, S. Shao, H. Yao, Z. Liu, and Z. Qin, "AttriGuard: Defeating Indirect Prompt Injection in LLM Agents via Causal Attribution of Tool Invocations," in *Proc. USENIX Security Symposium*, 2026. arXiv:2603.10749.
+
+[10] Y. Cai, W. Tang, C. Wen, and S. Qin, "Ghost in the Agent: Redefining Information Flow Tracking for LLM Agents," arXiv:2604.23374, 2026.
+
+[11] A. Kravchenko, V. Liventsev, I. Konstantinov, I. Iskhakov, and M. Kukuy, "APPA: Recoverable Information-Flow Control for Real-World LLM Agents," arXiv:2607.24625, 2026.
+
+[12] D. Girrens and G. Wang, "SPA: Securing Persistent LLM Agents Across Queries with Plan-First Information-Flow Control," arXiv:2608.27234, 2026.
+
+[13] A. Storek, N. Holzer, Z. Zhang, and S. Jana, "GIF: Locally Sound Geometric Information Flow Control for LLMs," arXiv:2606.23277, 2026.
+
+[14] M. Shim, R. R. Karim, R. Jakkula, K. Zhou, X. Liu, X. E. Wang, and Z. Li, "Confuse the Model, Control the Flow: Understanding and Mitigating Privacy Leakage from LLM Agents with Information Flow Control," arXiv:2609.14003, 2026.
+
+[15] W. Zhao, Z. Li, P. Zhang, and J. Sun, "ClawGuard: A Runtime Security Framework for Tool-Augmented LLM Agents Against Indirect Prompt Injection," arXiv:2604.11790, 2026.
+
+[16] Y. Wang, W. Zou, R. Geng, and J. Jia, "AgentWatcher: A Rule-based Prompt Injection Monitor," arXiv:2604.01194, 2026.
+
+[17] C. Ye, J. Cui, and D. Hadfield-Menell, "Prompt Injection as Role Confusion," in *Proc. ICML*, 2026. arXiv:2603.12277.
+
+[18] A. Doshi, Y. Hong, C. Xu, E. Kang, A. Kapravelos, and C. Kästner, "Towards Verifiably Safe Tool Use for LLM Agents," in *Proc. ICSE NIER*, 2026. arXiv:2601.08012.
+
+[19] Y. Lin, J. Wu, Y. Nan, X. Wang, X. Zhang, and Z. Zheng, "AgentRaft: Automated Detection of Data Over-Exposure in LLM Agents," arXiv:2603.07557, 2026.
+
+[20] A. Salem, A. Paverd, and B. Köpf, "Maatphor: Automated Variant Analysis for Prompt Injection Attacks," arXiv:2312.11513, 2023.
+
+[21] X. Chen, J. Zhang, and F. Tramèr, "Learning to Inject: Automated Prompt Injection via Reinforcement Learning," arXiv:2602.05746, 2026.
+
+[22] V. Mayoral-Vilches and P. M. Rynning, "Cybersecurity AI: Hacking the AI Hackers via Prompt Injection," arXiv:2508.21669, 2025.
+
+[23] W. Li and Y. Xu, "ToolMinimize: Auditing and Rewriting LLM Agent Tool Calls to Minimize Privacy Exposure," arXiv:2608.24957, 2026.

@@ -75,7 +75,8 @@ def normalise_spelling(text: str) -> str:
 
 
 _EDITORIAL = re.compile(
-    r"\*\*\[(unchanged from v0\.3\.1|new in v0\.4\.1|renumbered[^*]*)\]\*\*\s*",
+    r"\*\*\[(?:unchanged from v0\.3\.1|new in v0\.4\.1|renumbered[^*]*)"
+    r"(?:[^\]]*)?\]\*\*\s*",
     re.IGNORECASE,
 )
 
