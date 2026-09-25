@@ -16,13 +16,6 @@ from typing import Any, Dict, List, Optional
 # never touches the structural band.
 AUTHORISED_ACTION_CEILING = 0.55
 
-# Ceiling used only by the v0.4.1b ablation, which re-enables trusted-entity
-# resolution as an active suppression mechanism. v0.4.1 deliberately leaves it
-# unused: a "this entity came from a trusted store" observation is recorded as
-# evidence, not applied as trust policy, so the authorisation fix is not
-# confounded with a second change to the risk mathematics.
-TRUSTED_ENTITY_CEILING = 0.70
-
 
 class RiskSignalType(str, Enum):
     """Types of risk signals that can be detected from a tool event."""
