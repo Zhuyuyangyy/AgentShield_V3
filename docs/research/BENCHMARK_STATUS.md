@@ -6,6 +6,28 @@ The evaluation harness is now label-free and reproducible, and GitHub Actions
 is green across all six jobs (lint, test 3.11, test 3.12, typecheck, benchmark,
 docker).
 
+**Lint scope — read this before quoting any lint figure.**
+
+```
+CI lint scope: All checks passed
+whole-repository ruff check: 123 pre-existing findings outside CI scope
+```
+
+The CI lint job runs exactly two commands, and both are green:
+
+```bash
+ruff check backend/
+ruff check benchmark/ benchmark/independent_eval/ scripts/
+```
+
+Running `ruff check .` at the repository root scans directories CI does not
+lint and reports 123 findings — 54 in `dashboard.py`, 51 in
+`benchmark_expand.py`, 8 in `docs/experiments/benchmark_100.py`, 5 in
+`tests/test_smoke.py`, 5 in `sdk/`, all of them pre-existing. Those two
+numbers describe different scopes and must not be merged into a single
+"lint passed" or "lint failed" statement. Any release audit should reproduce
+the two CI commands verbatim.
+
 **Quotable, with the stated caveats**
 
 | Result | Value | Where |
@@ -689,19 +711,27 @@ right to allow them.
 
 So the honest statement is:
 
-* **v0.4 introduces no false negatives on this sample.** Attack blocking drops
-  16.0% -> 7.0% only because v0.3 was over-blocking authorised actions.
-* **Benign trace blocking drops 41.2% -> 30.9%.**
-* The remaining 30.9% is still high, and it is not explained by authorisation:
-  those are benign trajectories where no explicit operator authorisation could
-  be established, and the presence-based signal still fires.
+* **On this sample, v0.4 released every trajectory it stopped blocking on the
+  basis of an explicit authorisation or a read-only final call.** Attack
+  blocking drops 16.0% -> 3.5% because v0.3 was over-blocking actions the
+  operator had explicitly authorised; the action-level audit in the next
+  section is what supports this claim, and it is an action-level claim only.
+  Offline replay still cannot tell us whether the attacks themselves would
+  have succeeded, so this is not a "no false negatives" statement about
+  security outcomes.
+* **Benign trace blocking drops 41.2% -> 28.9%** under v0.4.1 (21.6% under
+  v0.4, whose authorisation cap still pardoned structural risk).
+* The residual 28.9% is not explained by authorisation: those are benign
+  trajectories where no explicit operator authorisation could be established,
+  and the presence-based signal still fires.
 
-That is a Pareto improvement in the sense that matters -- fewer benign blocks
-with no measured loss of attack coverage -- but it is **not** a clean win,
-because "attack coverage" here means "trajectories blocked", and blocking an
-authorised action is not attack coverage. Restated on a per-decision basis the
-v0.4 gate is strictly better; restated on the trajectory-block metric it looks
-like a regression. Both readings are reported rather than the flattering one.
+That is an improvement in the sense the metric supports -- fewer benign blocks,
+each release individually justified at the action level -- but it is **not** a
+clean win, because "attack coverage" here means "trajectories blocked", and
+blocking an authorised action is not attack coverage. Restated on a per-decision
+basis the v0.4.1 gate is defensible; restated on the trajectory-block metric it
+looks like a regression. Both readings are reported rather than the flattering
+one.
 
 ### Second pass: classifying what v0.3 had been blocking
 
@@ -712,15 +742,28 @@ ceiling rather than a low additive score changes the picture again. On the same
 
 | why v0.3 blocked it | count | v0.4 verdict |
 |---|---|---|
-| the operator explicitly authorised the action | 36 | correctly allowed |
-| the final tool is read-only (no side effect) | 14 | correctly allowed |
-| genuinely should have stayed blocked | **14** | still blocked |
+| final governed action concordant with explicit operator authorization | 36 | allowed |
+| final governed tool is read-only (no side effect) | 14 | allowed |
+| neither of the above | **14** | still blocked |
 
-So v0.4 releases **nothing that should have been blocked**. The drop in
-attack-trace blocking from 16.0% to 3.5% is entirely the removal of v0.3
-false positives -- 50 of the 64 trajectories it blocked were benign in the
-sense that matters: either the user asked for exactly that action, or the
-governed tool could not act on the tainted value at all.
+**What this does and does not license.** These 64 trajectories are still
+labelled attack by AgentDojo; nothing here re-labels them. What the audit
+establishes is narrower and action-level:
+
+> 50 of the 64 attack-labelled trajectories blocked by v0.3 were not
+> independently actionable at the final governance point under our
+> action-level audit: 36 were concordant with explicit operator authorization
+> and 14 ended in read-only calls.
+
+We do **not** reinterpret these trajectories as benign, nor as security false
+positives, because offline replay does not measure attack success or
+task-level outcomes. An attack trajectory whose final call happens to match the
+operator's authorisation is not thereby shown to have failed: the manipulated
+intermediate steps may still have caused harm that this harness never observes,
+and there is no official grader, no attack-success rate and no outcome
+semantics available offline. The correct statement is that v0.4's block
+decision at that final governance point was not justified on its own terms --
+not that the attack failed.
 
 Full ladder after both refinements (same 97 benign / 400 attack trajectories):
 
@@ -732,10 +775,13 @@ Full ladder after both refinements (same 97 benign / 400 attack trajectories):
 | + intent consistency | 0.160 | 41.2% |
 | + trust policy + read guard + caps (v0.4) | 0.035 | 21.6% |
 
-Read together with the row above it, the honest summary is: **v0.3's 16.0%
-attack-block figure was 78% false positives.** v0.4 blocks a third as many
-trajectories and none of the difference is a missed attack; benign blocking
-roughly halves.
+The drop in attack-trace blocking from 16.0% to 3.5% is therefore reported
+without the word "false positive" attached to it. v0.4 blocks a third as many
+attack-labelled trajectories, and the action-level audit above says the
+released final calls were predominantly authorization-concordant or read-only;
+whether the underlying attacks would still succeed is outside what this replay
+can measure. Benign blocking roughly halves, which is the part the metric is
+actually able to support.
 
 The read-only guard is gated behind the trust-policy flag so the v0.3 ladder
 stays comparable with the frozen v0.3.1-research release.
@@ -802,6 +848,37 @@ Cost of the fix, measured rather than assumed: benign trace blocking rises
 from 21.6% to 28.9%, because trajectories whose only risk was provenance no
 longer get the whole combined peak pardoned. The ceilings were **not** retuned
 to recover the old numbers — doing so would be benchmark fitting.
+
+#### How to state the v0.4.1 ladder without over-claiming
+
+| Configuration | Attack-labelled trace block | Benign trace block |
+|---|---:|---:|
+| single event | 0.0% | 1.0% |
+| + output inspection | 3.5% | 19.6% |
+| + provenance (v0.3) | 16.0% | 41.2% |
+| + safe authorisation (v0.4.1) | **3.5%** | **28.9%** |
+
+The defensible reading is **not** "attack blocking fell 16.0% → 3.5% and the
+12.5 points were false positives". It is:
+
+> v0.4.1 substantially reduces over-blocking on benign trajectories. Its raw
+> blocking rate on attack-labelled trajectories also falls from 16.0% to 3.5%.
+> An action-level audit shows that the released final calls are predominantly
+> authorization-concordant or read-only; however, offline replay cannot
+> determine whether the underlying attacks would still succeed.
+
+Three levels are being conflated by any stronger claim, and the paper should
+keep them explicitly separate:
+
+1. **trajectory-level attack label** — what AgentDojo says about the whole
+   trajectory;
+2. **runtime action authorisation** — what the operator named at the final
+   governance point;
+3. **actual attack success** — whether harm occurred, which needs the official
+   sandbox and a grader.
+
+This harness measures (1) as input and (2) as its decision variable. It does
+not measure (3). Conflating (2) with (3) is exactly the inference to avoid.
 
 ### What still limits it
 
