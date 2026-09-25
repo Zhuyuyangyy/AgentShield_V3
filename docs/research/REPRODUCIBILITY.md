@@ -15,35 +15,40 @@ check the result.
 
 ## 1. Frozen revision
 
+Two immutable anchors identify this experiment. They do not move:
+
 ```text
-Base audited revision:
+Research logic revision:
 49127cdef723db1e8db67d3d438a18f3e74a1853
+
+Reproducibility tooling revision:
+83dddd7d6c62946db0244b3382c0cb3fa60307b2
 ```
 
-One commit sits on top of it, reproducibility-only:
-
-| Change | What it adds |
-|---|---|
-| this document's own commit (`83dddd7`) | this document, the verifier, the fingerprint script, their tests, and a `.gitignore` entry for the reproduced artifact |
+The research logic is frozen at `49127cd`. Commit `83dddd7` adds only
+reproducibility tooling and documentation -- the verifier, the fingerprint
+script, their tests, this document and a `.gitignore` entry. Later
+documentation-only commits do not change the experiment.
 
 `83dddd7` is named because that commit adds this file; the document is
 self-referential by necessity. Everything below describes the state of the code
 as of `49127cd`, which `83dddd7` does not alter.
 
-**Research logic frozen at `49127cd`.** Reproducibility-only changes after that
-commit do not alter detector or benchmark semantics. If a reproduction ever
-mismatches, the difference is data, environment or ordering — not a tuning
-change, because none was made.
+**Do not use the moving branch HEAD as the experiment identifier.** `main`
+advances with documentation and hygiene commits, so a checkout whose HEAD is
+newer than `83dddd7` is still a correct checkout of this experiment. Verify the
+release tag and the dataset fingerprint instead:
 
-Head of `main` after this pass:
-
-```text
-83dddd7 docs(research): make v0.4.1 replay independently reproducible
+```bash
+git describe --tags        # expect v0.4.1-research on the audited lineage
+python scripts/fingerprint_agentdojo_dump.py   # expect the hash in section 4
 ```
 
-If your checkout's HEAD differs from `49127cd` or `83dddd7`, you are not looking
-at the audited revision; the reproduction numbers below are not guaranteed to
-apply to a different revision.
+For an exact released state, use the annotated `v0.4.1-research` tag rather than
+the moving `main` branch. The historical `v0.3-research` and `v0.3.1-research`
+tags remain untouched as earlier freeze points and must not be moved.
+
+---
 
 ## 2. Environment
 
