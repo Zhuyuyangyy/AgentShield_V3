@@ -23,3 +23,31 @@ venv/
 # reproduced copy must never be committed as if it were canonical.
 benchmark/results/*.reproduced.json
 
+# Raw output of scripts/draw_manuscript_figures.py: one 300 dpi PNG and one
+# vector PDF per figure, written from the canonical result file. The copies the
+# manuscript embeds are paper/figures/, after metadata scrubbing. Anchored to
+# the repository root, because an unanchored `figures/` would also match
+# docs/research/figures/ and hide any future figure written there.
+/figures/
+
+# LaTeX build artifacts. paper/ is compiled locally with
+#   pdflatex main && bibtex main && pdflatex main && pdflatex main
+# Only main.tex, references.bib, figures/ and template/ are version-controlled.
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+paper/*.toc
+paper/*.synctex.gz
+paper/usenix_template.zip
+
+# The anonymous artifact snapshot uploaded to 4open.science is derived: every
+# file except the two hand-written documents is copied and rewritten by
+# scripts/build_anonymous_artifact.py. Committing it would freeze a stale copy
+# and invite an edit the next rebuild silently discards. README.md and
+# DATASET.md are authored rather than generated, so they stay tracked.
+artifact/*
+!artifact/README.md
+!artifact/DATASET.md
+

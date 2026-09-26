@@ -76,7 +76,8 @@ def fingerprint(dump_dir: Path = AGENTDOJO_DUMP) -> Dict[str, Any]:
     if not dump_dir.is_dir():
         raise FileNotFoundError(
             f"AgentDojo dump directory not found: {_relative(dump_dir)}\n"
-            "Stage the dump before fingerprinting; see docs/research/REPRODUCIBILITY.md."
+            "Stage the dump before fingerprinting; see DATASET.md, which records "
+            "the source, the expected path and the expected manifest digest."
         )
 
     arrow_files = sorted(dump_dir.rglob("*.arrow"), key=lambda p: _relative(p))
