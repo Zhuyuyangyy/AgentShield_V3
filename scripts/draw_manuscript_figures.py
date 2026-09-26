@@ -10,8 +10,11 @@ rather than reused. Figure 1 carried no numbers, but is redrawn too so that
 both figures come from one script with one style and can be regenerated.
 
 Everything here is presentation only. This script reads
-benchmark/results/v0_04_trust_pareto.json for the values it plots and writes
-PNG files; it does not touch the detector, the engine or the artifact.
+benchmark/results/v0_4_trust_pareto.json for the values it plots and writes
+each figure twice: a 300 dpi PNG for the DOCX build, and a vector PDF whose
+fonts are embedded as TrueType (pdf.fonttype 42) for the USENIX LaTeX build,
+where a full-width figure* would otherwise shrink an in-image legend below
+legibility. It does not touch the detector, the engine or the artifact.
 """
 
 from __future__ import annotations
@@ -28,7 +31,12 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT = ROOT / "benchmark" / "results" / "v0_4_trust_pareto.json"
-OUT_DIR = ROOT / "docs" / "research" / "figures"
+# A plain `figures/` next to the script's own tree, so the script writes
+# somewhere that exists both in the repository and in the anonymous artifact
+# snapshot. The previous output directory was a research-notes path that only
+# exists in the repository, which broke the snapshot's "regenerate the figures"
+# instruction and named a private directory in an uploaded artefact.
+OUT_DIR = ROOT / "figures"
 
 # One style for both figures: grayscale, serif, no chartjunk.
 plt.rcParams.update({
@@ -37,6 +45,7 @@ plt.rcParams.update({
     "axes.edgecolor": "black",
     "axes.linewidth": 0.8,
     "savefig.dpi": 300,
+    "pdf.fonttype": 42,
 })
 
 _LABELS = {
@@ -55,7 +64,34 @@ def _load_ladder() -> list:
     return payload["results"]
 
 
-def figure_observability_gap() -> Path:
+# USENIX Security double-blind review covers PDF metadata, not only visible
+# text, and the submission embeds these two figures. Matplotlib's PDF backend
+# otherwise writes /Creator, /Producer and /CreationDate by default: the first
+# two pin the toolchain and the third carries the local UTC offset, which is a
+# geographic hint with no bearing on the experiment. Passing None removes them
+# at the source. Metadata is PDF-only; the PNG is consumed by the internal DOCX
+# build, and forward-backend kwargs there expect strings.
+_FIGURE_PDF_METADATA = {
+    "Creator": None,
+    "Producer": None,
+    "CreationDate": None,
+}
+
+
+def _save(fig, stem: str) -> list[Path]:
+    """Write one figure as both a 300 dpi PNG and a vector PDF, same stem."""
+    written = []
+    for suffix in (".png", ".pdf"):
+        out = OUT_DIR / f"{stem}{suffix}"
+        kwargs = {"bbox_inches": "tight", "facecolor": "white"}
+        if suffix == ".pdf":
+            kwargs["metadata"] = _FIGURE_PDF_METADATA
+        fig.savefig(out, **kwargs)
+        written.append(out)
+    return written
+
+
+def figure_observability_gap() -> list[Path]:
     """Figure 1: the same final call, two different argument origins."""
     fig, ax = plt.subplots(figsize=(7.2, 3.1))
     ax.set_xlim(0, 10)
@@ -111,13 +147,12 @@ def figure_observability_gap() -> Path:
     ax.text(5.0, 3.68, "the security-relevant distinction is provenance, not the call",
             ha="center", fontsize=8.4, style="italic")
 
-    out = OUT_DIR / "figure1_observability_gap.png"
-    fig.savefig(out, bbox_inches="tight", facecolor="white")
+    written = _save(fig, "figure1_observability_gap")
     plt.close(fig)
-    return out
+    return written
 
 
-def figure_ladder() -> Path:
+def figure_ladder() -> list[Path]:
     """Figure 2: attack and benign trace blocking across the six rungs."""
     results = _load_ladder()
     names = [r["config"] for r in results]
@@ -158,10 +193,9 @@ def figure_ladder() -> Path:
     ax.set_axisbelow(True)
     ax.legend(fontsize=7.4, frameon=False, loc="upper left")
 
-    out = OUT_DIR / "figure2_ladder.png"
-    fig.savefig(out, bbox_inches="tight", facecolor="white")
+    written = _save(fig, "figure2_ladder")
     plt.close(fig)
-    return out
+    return written
 
 
 def main() -> int:
@@ -169,10 +203,8 @@ def main() -> int:
     if not ARTIFACT.is_file():
         print(f"ERROR: canonical artifact not found: {ARTIFACT}", file=sys.stderr)
         return 2
-    f1 = figure_observability_gap()
-    f2 = figure_ladder()
-    print(f"wrote {f1.relative_to(ROOT)}")
-    print(f"wrote {f2.relative_to(ROOT)}")
+    for path in figure_observability_gap() + figure_ladder():
+        print(f"wrote {path.relative_to(ROOT)}")
     return 0
 
 
